@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: lifestack_e2e
+      POSTGRES_PASSWORD: lifestack_e2e
+      POSTGRES_DB: lifestack_e2e
+    ports:
+      - "5433:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6381:6379"
+
+  api-e2e:
+    build:
+      context: ../lifestack-api
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - ENV=local
+      - BACKEND_CORS_ORIGINS=["http://localhost:5174"]
+      - DATABASE_URL=postgresql+asyncpg://lifestack_e2e:lifestack_e2e@postgres:5432/lifestack_e2e
+      - REDIS_URL=redis://redis:6379/1
+      - RATE_LIMIT_STORAGE_URI=redis://redis:6379/1
+      - SCHEDULER_ENABLED=false
+      - ACCESS_TOKEN_EXPIRE_SECONDS=3600
+      - REFRESH_TOKEN_EXPIRE_SECONDS=604800
+
+  web-e2e:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ../lifestack-web:/app
+    ports:
+      - "5174:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8001/v1
+    command: sh -c "npm install && npm run dev -- --host --port 5173 --mode e2e"
