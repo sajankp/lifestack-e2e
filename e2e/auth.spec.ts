@@ -6,7 +6,7 @@ test.describe('Authentication and User Registration Flow', () => {
   const testUsername = `e2euser_${timestamp}`;
   const testPassword = 'Password123!';
 
-  test('should register, login, and logout successfully', async ({ page, baseURL }) => {
+  test('should register, login, and logout successfully @smoke', async ({ page, baseURL }) => {
     page.on('console', msg => console.log('BROWSER CONSOLE:', msg.text(), msg.type()));
     page.on('requestfailed', req => console.log('BROWSER REQUEST FAILED:', req.url(), req.failure()?.errorText));
 
@@ -19,12 +19,30 @@ test.describe('Authentication and User Registration Flow', () => {
     await expect(page).toHaveURL(/.*\/register/);
 
     // 3. Register user
-    await page.fill('input[placeholder="Email address"]', testEmail);
-    await page.fill('input[placeholder="Username"]', testUsername);
-    await page.fill('input[placeholder="Password"]', testPassword);
-    await page.click('button[type="submit"]');
+    let redirectedToLogin = false;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      await page.fill('input[placeholder="Email address"]', testEmail);
+      await page.fill('input[placeholder="Username"]', testUsername);
+      await page.fill('input[placeholder="Password"]', testPassword);
+      await page.click('button[type="submit"]');
+
+      redirectedToLogin = await page
+        .waitForURL(/.*\/login/, { timeout: 5000 })
+        .then(() => true)
+        .catch(() => false);
+
+      if (redirectedToLogin) break;
+
+      const rateLimited = await page.locator('text=Rate limit exceeded').isVisible();
+      if (rateLimited && attempt < 1) {
+        await page.waitForTimeout(65_000);
+        continue;
+      }
+      break;
+    }
 
     // 4. Verify redirected to login with success message
+    expect(redirectedToLogin).toBeTruthy();
     await expect(page).toHaveURL(/.*\/login/, { timeout: 10000 });
     await expect(page.locator('text=Registration successful')).toBeVisible();
 

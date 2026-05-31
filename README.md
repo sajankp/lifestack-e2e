@@ -30,16 +30,34 @@ Once Postgres is up, run the database migrations on the `api-e2e` container:
 docker compose -f docker-compose.e2e.yml exec api-e2e alembic upgrade head
 ```
 
-### 4. Run the Test Suite
-Execute the Playwright integration tests:
+### 4. Run Environment Precheck
+Run a fail-fast precheck for Web/API/DB connectivity:
 ```bash
 PLAYWRIGHT_BASE_URL=http://localhost:5174 \
 PLAYWRIGHT_API_URL=http://localhost:8001 \
 E2E_DATABASE_URL=postgresql+asyncpg://lifestack_e2e:lifestack_e2e@localhost:5433/lifestack_e2e \
-npx playwright test
+npm run precheck
 ```
 
-### 5. Tear Down the Environment
+### 5. Run Smoke Suite (must-pass)
+Run the fast smoke tier:
+```bash
+PLAYWRIGHT_BASE_URL=http://localhost:5174 \
+PLAYWRIGHT_API_URL=http://localhost:8001 \
+E2E_DATABASE_URL=postgresql+asyncpg://lifestack_e2e:lifestack_e2e@localhost:5433/lifestack_e2e \
+npm run test:smoke
+```
+
+### 6. Run Full Suite
+Execute all Playwright integration tests:
+```bash
+PLAYWRIGHT_BASE_URL=http://localhost:5174 \
+PLAYWRIGHT_API_URL=http://localhost:8001 \
+E2E_DATABASE_URL=postgresql+asyncpg://lifestack_e2e:lifestack_e2e@localhost:5433/lifestack_e2e \
+npm run test:full
+```
+
+### 7. Tear Down the Environment
 To stop the containers and delete the volumes (wiping the database):
 ```bash
 docker compose -f docker-compose.e2e.yml down -v
@@ -50,6 +68,8 @@ docker compose -f docker-compose.e2e.yml down -v
 ## Test Coverage
 
 - **`e2e/auth.spec.ts`**: Registration, login, automatic sidebar category provisioning, protected routes redirection, and session logout.
+- **`e2e/todo-smoke.spec.ts`**: Todo creation and completion smoke flow.
+- **`e2e/imports-smoke.spec.ts`**: Spending import validate + commit smoke flow.
 - **`e2e/spending-guardrails.spec.ts`**: Category creation, budget setting, logging breacheable expense transaction (95%), triggering backend guardrail evaluation task, and verifying the todo alert generation.
 - **`e2e/spending-recurring.spec.ts`**: Recurring spending rule creation/edit/deactivation and scheduler-driven recurring transaction generation verification.
 - **`e2e/investing-fx.spec.ts`**: Multi-currency brokerage accounts creation (GBP & USD), holding asset creation, setting reporting currency (USD), checking valuation, and look-through exposure analytics.

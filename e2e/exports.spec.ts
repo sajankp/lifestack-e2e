@@ -1,28 +1,22 @@
 import { test, expect } from '@playwright/test';
+import { registerAndLogin } from './helpers/auth';
 
 test.describe('Data Export Module E2E Flow', () => {
-  const timestamp = Date.now();
-  const testEmail = `e2e-exports-${timestamp}@example.com`;
-  const testUsername = `e2e_exports_${timestamp}`;
   const testPassword = 'Password123!';
   const apiBaseUrl = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8000';
 
-  test.beforeEach(async ({ page, baseURL }) => {
-    // 1. Register and login a fresh user for this test file
-    await page.goto('/register');
-    await page.fill('input[placeholder="Email address"]', testEmail);
-    await page.fill('input[placeholder="Username"]', testUsername);
-    await page.fill('input[placeholder="Password"]', testPassword);
-    await page.click('button[type="submit"]');
-
-    await page.goto('/login');
-    await page.fill('input[placeholder="Email address"]', testEmail);
-    await page.fill('input[placeholder="Password"]', testPassword);
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(`${baseURL}/`, { timeout: 10000 });
+  test.beforeEach(async ({ page, baseURL }, testInfo) => {
+    const seed = `${Date.now()}-${testInfo.workerIndex}-${testInfo.retry}-${Math.random().toString(36).slice(2, 8)}`;
+    const testEmail = `e2e-exports-${seed}@example.com`;
+    const testUsername = `e2e_exports_${seed}`;
+    await registerAndLogin(page, baseURL, {
+      email: testEmail,
+      username: testUsername,
+      password: testPassword,
+    });
   });
 
-  test('should trigger, verify, and download a JSON export successfully', async ({ page, baseURL }) => {
+  test('should trigger, verify, and download a JSON export successfully @smoke', async ({ page, baseURL }) => {
     const context = page.context();
     const origin = baseURL || 'http://localhost:5173';
 
