@@ -1,0 +1,5 @@
+Date,Wallet,Type,"Category name",Amount,Currency,Note,Labels,Author
+2026-02-17T00:50:58+00:00,Main Wallet,Expense,Family,-3700.00,INR,School fee,home,
+2026-02-17T00:55:46+00:00,Travel Wallet,Expense,Bus,-221.80,INR,,commute,
+2026-02-18T00:56:41+00:00,Main Wallet,Income,Dividend,225.00,INR,Quarterly payout,investing,
+2026-03-01T05:37:28+00:00,Main Wallet,Expense,Home needs,-11000.00,INR,Rent,monthly,
