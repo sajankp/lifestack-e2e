@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { registerAndLogin } from './helpers/auth';
 
 test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
   const timestamp = Date.now();
@@ -9,60 +10,57 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
   const usdAccount = `USD Brokerage ${timestamp}`;
 
   test.beforeEach(async ({ page, baseURL }) => {
-    // 1. Register and login a fresh user for this test file
-    await page.goto('/register');
-    await page.fill('input[placeholder="Email address"]', testEmail);
-    await page.fill('input[placeholder="Username"]', testUsername);
-    await page.fill('input[placeholder="Password"]', testPassword);
-    await page.click('button[type="submit"]');
-
-    await page.goto('/login');
-    await page.fill('input[placeholder="Email address"]', testEmail);
-    await page.fill('input[placeholder="Password"]', testPassword);
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(`${baseURL}/`, { timeout: 10000 });
+    await registerAndLogin(page, baseURL, {
+      email: testEmail,
+      username: testUsername,
+      password: testPassword,
+    });
   });
 
   test('should create multi-currency accounts and holdings, and verify FX look-through valuation', async ({ page, baseURL }) => {
+    const selectOption = async (triggerTestId: string, optionName: string) => {
+      await page.getByTestId(triggerTestId).click();
+      await page.getByRole('option', { name: optionName, exact: true }).click();
+    };
+
     // 2. Navigate to Investing tab
-    await page.click('a[href="/investing"]');
+    await page.getByTestId('nav-investing').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
 
     // 3. Create GBP Account
-    // Select GBP currency in the "Add Holding" form currency dropdown first, so that the account created uses GBP
-    await page.locator('form:has-text("Add Holding") >> select').nth(1).selectOption('GBP');
-    await page.fill('input[placeholder="Account name"]', gbpAccount);
-    await page.locator('input[placeholder="Account name"] + select').selectOption('brokerage');
-    await page.click('button:has-text("Create account")');
+    // Set holding currency first so quick-created account inherits this currency.
+    await selectOption('investing-holding-currency', 'GBP');
+    await page.getByTestId('investing-account-name').fill(gbpAccount);
+    await selectOption('investing-account-type', 'Brokerage');
+    await page.getByTestId('investing-account-create').click();
 
     // 4. Create USD Account
-    // Select USD currency in the "Add Holding" form currency dropdown first
-    await page.locator('form:has-text("Add Holding") >> select').nth(1).selectOption('USD');
-    await page.fill('input[placeholder="Account name"]', usdAccount);
-    await page.locator('input[placeholder="Account name"] + select').selectOption('brokerage');
-    await page.click('button:has-text("Create account")');
+    await selectOption('investing-holding-currency', 'USD');
+    await page.getByTestId('investing-account-name').fill(usdAccount);
+    await selectOption('investing-account-type', 'Brokerage');
+    await page.getByTestId('investing-account-create').click();
 
     // 5. Add a GBP holding (e.g. VWRD, 10 units, avg cost 100 GBP)
-    await page.fill('input[placeholder="Symbol (e.g. AAPL)"]', 'VWRD');
-    await page.locator('form:has-text("Add Holding") >> select').nth(0).selectOption({ label: gbpAccount });
-    await page.fill('input[placeholder="Quantity"]', '10');
-    await page.fill('input[placeholder="Avg cost"]', '100');
-    await page.locator('form:has-text("Add Holding") >> select').nth(1).selectOption('GBP');
-    await page.click('button:has-text("Add holding")');
+    await page.getByTestId('investing-holding-symbol').fill('VWRD');
+    await selectOption('investing-holding-account', gbpAccount);
+    await page.getByTestId('investing-holding-quantity').fill('10');
+    await page.getByTestId('investing-holding-avg-cost').fill('100');
+    await selectOption('investing-holding-currency', 'GBP');
+    await page.getByTestId('investing-holding-submit').click();
 
     // Verify GBP holding added
-    await expect(page.locator('table >> text=VWRD')).toBeVisible();
+    await expect(page.getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
 
     // 6. Add a USD holding (e.g. AAPL, 5 units, avg cost 150 USD)
-    await page.fill('input[placeholder="Symbol (e.g. AAPL)"]', 'AAPL');
-    await page.locator('form:has-text("Add Holding") >> select').nth(0).selectOption({ label: usdAccount });
-    await page.fill('input[placeholder="Quantity"]', '5');
-    await page.fill('input[placeholder="Avg cost"]', '150');
-    await page.locator('form:has-text("Add Holding") >> select').nth(1).selectOption('USD');
-    await page.click('button:has-text("Add holding")');
+    await page.getByTestId('investing-holding-symbol').fill('AAPL');
+    await selectOption('investing-holding-account', usdAccount);
+    await page.getByTestId('investing-holding-quantity').fill('5');
+    await page.getByTestId('investing-holding-avg-cost').fill('150');
+    await selectOption('investing-holding-currency', 'USD');
+    await page.getByTestId('investing-holding-submit').click();
 
     // Verify USD holding added
-    await expect(page.locator('table >> text=AAPL')).toBeVisible();
+    await expect(page.getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
 
     // 7. Configure reporting currency to USD via API request sharing session cookies
     const context = page.context();
@@ -81,21 +79,21 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
 
     // 8. Refresh page to reflect new reporting currency settings and verify valuation
     await page.reload();
-    await expect(page.locator('text=Reporting currency: USD')).toBeVisible();
+    await expect(page.getByTestId('investing-reporting-currency')).toContainText('USD');
 
     // GBP holding cost = 10 * 100 = 1000 GBP. Converted to USD at 1.25 rate = 1250 USD.
     // USD holding cost = 5 * 150 = 750 USD.
     // Total Portfolio Value in USD = 1250 + 750 = 2000 USD.
     // Let's verify that the total portfolio value shows $2,000.00
-    await expect(page.locator('text=Portfolio value >> xpath=following-sibling::p')).toContainText('$2,000.00');
+    await expect(page.getByTestId('investing-portfolio-value')).toContainText('$2,000.00');
 
     // 9. Navigate to Look-through Analytics tab
-    await page.click('button:has-text("Look-through Analytics")');
+    await page.getByTestId('investing-tab-analytics').click();
 
     // 10. Verify exposure calculations
     // Since the API uses un-converted holding cost sums (1000 GBP + 750 USD = 1750),
     // we assert $1,750.00 for both.
-    await expect(page.locator('text=Total direct: $1,750.00')).toBeVisible();
-    await expect(page.locator('text=Total look-through: $1,750.00')).toBeVisible();
+    await expect(page.getByTestId('investing-total-direct')).toContainText('$1,750.00');
+    await expect(page.getByTestId('investing-total-lookthrough')).toContainText('$1,750.00');
   });
 });
