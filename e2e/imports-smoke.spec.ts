@@ -1,18 +1,22 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 import { test, expect } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 
 test.describe('Imports Smoke Flow', () => {
-  const timestamp = Date.now();
-  const testEmail = `e2e-imports-${timestamp}@example.com`;
-  const testUsername = `e2e_imports_${timestamp}`;
+  let testEmail = '';
+  let testUsername = '';
   const testPassword = 'Password123!';
   const apiBaseUrl = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8000';
 
   test.beforeEach(async ({ page, baseURL }) => {
+    const uniqueId = randomUUID();
+    testEmail = `e2e-imports-${uniqueId}@example.com`;
+    testUsername = `e2e_imports_${uniqueId.replace(/-/g, '_')}`;
+
     await registerAndLogin(page, baseURL, {
       email: testEmail,
       username: testUsername,

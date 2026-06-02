@@ -29,7 +29,7 @@ async function checkHttp(name, baseUrl, path) {
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
     const response = await fetch(target, { method: 'GET', signal: controller.signal });
-    if (response.status >= 500) {
+    if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
     console.log(`[OK] ${name} reachable at ${target} (status ${response.status})`);

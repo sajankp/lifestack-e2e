@@ -1,13 +1,17 @@
 import { test, expect } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 import { registerAndLogin } from './helpers/auth';
 
 test.describe('Todo Smoke Flow', () => {
-  const timestamp = Date.now();
-  const testEmail = `e2e-todo-${timestamp}@example.com`;
-  const testUsername = `e2e_todo_${timestamp}`;
+  let testEmail = '';
+  let testUsername = '';
   const testPassword = 'Password123!';
 
   test.beforeEach(async ({ page, baseURL }) => {
+    const uniqueId = randomUUID();
+    testEmail = `e2e-todo-${uniqueId}@example.com`;
+    testUsername = `e2e_todo_${uniqueId.replace(/-/g, '_')}`;
+
     await registerAndLogin(page, baseURL, {
       email: testEmail,
       username: testUsername,

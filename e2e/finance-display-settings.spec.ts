@@ -1,13 +1,17 @@
 import { expect, test } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 import { registerAndLogin } from './helpers/auth';
 
 test.describe('Finance Display Settings E2E Flow', () => {
-  const timestamp = Date.now();
-  const testEmail = `e2e-finance-display-${timestamp}@example.com`;
-  const testUsername = `e2e_finance_display_${timestamp}`;
+  let testEmail = '';
+  let testUsername = '';
   const testPassword = 'Password123!';
 
   test.beforeEach(async ({ page, baseURL }) => {
+    const uniqueId = randomUUID();
+    testEmail = `e2e-finance-display-${uniqueId}@example.com`;
+    testUsername = `e2e_finance_display_${uniqueId.replace(/-/g, '_')}`;
+
     await registerAndLogin(page, baseURL, {
       email: testEmail,
       username: testUsername,

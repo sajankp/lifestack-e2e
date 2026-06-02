@@ -21,6 +21,11 @@ test.describe('Authentication and User Registration Flow', () => {
     // 3. Register user
     let redirectedToLogin = false;
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      if (attempt > 0) {
+        await page.goto('/register');
+        await expect(page).toHaveURL(/.*\/register/);
+      }
+
       await page.fill('input[placeholder="Email address"]', testEmail);
       await page.fill('input[placeholder="Username"]', testUsername);
       await page.fill('input[placeholder="Password"]', testPassword);
@@ -36,6 +41,7 @@ test.describe('Authentication and User Registration Flow', () => {
       const rateLimited = await page.locator('text=Rate limit exceeded').isVisible();
       if (rateLimited && attempt < 1) {
         await page.waitForTimeout(65_000);
+        await page.goto('/register');
         continue;
       }
       break;
@@ -56,7 +62,7 @@ test.describe('Authentication and User Registration Flow', () => {
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
 
     // 7. Log out
-    await page.click('button:has-text("Logout"), a:has-text("Logout"), button:has-text("Sign Out")');
+    await page.getByTestId('header-logout').click();
     await expect(page).toHaveURL(/.*\/login/);
 
     // 8. Try accessing protected page while logged out

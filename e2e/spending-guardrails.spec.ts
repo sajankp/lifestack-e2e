@@ -1,4 +1,5 @@
 import { execSync } from 'child_process';
+import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 import type { Locator } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
@@ -46,13 +47,17 @@ function triggerBudgetGuardrails(username: string) {
 }
 
 test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
-  const timestamp = Date.now();
-  const testEmail = `e2e-spending-${timestamp}@example.com`;
-  const testUsername = `e2e_spending_${timestamp}`;
+  let testEmail = '';
+  let testUsername = '';
+  let customCategory = '';
   const testPassword = 'Password123!';
-  const customCategory = `Dining Out ${timestamp}`;
 
   test.beforeEach(async ({ page, baseURL }) => {
+    const uniqueId = randomUUID();
+    testEmail = `e2e-spending-${uniqueId}@example.com`;
+    testUsername = `e2e_spending_${uniqueId.replace(/-/g, '_')}`;
+    customCategory = `Dining Out ${uniqueId.slice(0, 8)}`;
+
     await registerAndLogin(page, baseURL, {
       email: testEmail,
       username: testUsername,
