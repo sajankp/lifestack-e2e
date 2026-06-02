@@ -18,7 +18,8 @@
 import { test, expect } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 
-const API_BASE = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000/v1';
+const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
+const API_BASE = PLAYWRIGHT_API_URL.endsWith('/v1') ? PLAYWRIGHT_API_URL : `${PLAYWRIGHT_API_URL}/v1`;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
