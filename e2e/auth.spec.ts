@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 test.describe('Authentication and User Registration Flow', () => {
   const timestamp = Date.now();
   const testEmail = `e2e-user-${timestamp}@example.com`;
@@ -40,7 +42,7 @@ test.describe('Authentication and User Registration Flow', () => {
 
       const rateLimited = await page.locator('text=Rate limit exceeded').isVisible();
       if (rateLimited && attempt < 1) {
-        await page.waitForTimeout(65_000);
+        await delay(1_500);
         continue;
       }
       break;

@@ -69,8 +69,8 @@ async function registerViaApi(
   });
 
   const wsRes = await request.get(`${API_BASE}/platform/workspaces/`);
-  const wsBody = (await wsRes.json()) as { items: Array<{ public_id: string }> };
-  return { userId: body.public_id, workspaceId: wsBody.items[0]?.public_id ?? '' };
+  const wsBody = (await wsRes.json()) as { items?: Array<{ public_id: string }> };
+  return { userId: body.public_id, workspaceId: wsBody.items?.[0]?.public_id ?? '' };
 }
 
 // ─── RBAC Tests ───────────────────────────────────────────────────────────────
@@ -90,8 +90,8 @@ test.describe('Workspace RBAC enforcement @rbac', () => {
     // 3. Login as owner, invite viewer with VIEWER role
     await loginViaApi(request, ownerCreds.email, ownerCreds.password);
     const wsRes = await request.get(`${API_BASE}/platform/workspaces/`);
-    const wsBody = (await wsRes.json()) as { items: Array<{ public_id: string }> };
-    const workspaceId = wsBody.items[0]?.public_id;
+    const wsBody = (await wsRes.json()) as { items?: Array<{ public_id: string }> };
+    const workspaceId = wsBody.items?.[0]?.public_id;
     expect(workspaceId, 'Owner must have at least one workspace').toBeTruthy();
 
     // Invite viewer to workspace with VIEWER role
@@ -106,8 +106,8 @@ test.describe('Workspace RBAC enforcement @rbac', () => {
 
     // Switch to viewer's workspace context (must select the shared workspace)
     const viewerWsRes = await request.get(`${API_BASE}/platform/workspaces/`);
-    const viewerWsBody = (await viewerWsRes.json()) as { items: Array<{ public_id: string }> };
-    const sharedWs = viewerWsBody.items.find((w) => w.public_id === workspaceId);
+    const viewerWsBody = (await viewerWsRes.json()) as { items?: Array<{ public_id: string }> };
+    const sharedWs = viewerWsBody.items?.find((w) => w.public_id === workspaceId);
     expect(sharedWs, 'Viewer should see the shared workspace').toBeTruthy();
 
     // Switch to the shared workspace
@@ -149,8 +149,8 @@ test.describe('Workspace RBAC enforcement @rbac', () => {
     // Read todos back
     const listRes = await request.get(`${API_BASE}/todo/`);
     expect(listRes.status()).toBe(200);
-    const listBody = (await listRes.json()) as { items: Array<{ title: string }> };
-    const created = listBody.items.find((t) => t.title === 'RBAC Member Todo');
+    const listBody = (await listRes.json()) as { items?: Array<{ title: string }> };
+    const created = listBody.items?.find((t) => t.title === 'RBAC Member Todo');
     expect(created, 'Created todo should be visible').toBeTruthy();
   });
 

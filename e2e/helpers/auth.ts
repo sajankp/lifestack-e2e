@@ -8,9 +8,11 @@ type AuthCredentials = {
 
 const RATE_LIMIT_TEXT = 'Rate limit exceeded';
 const TOO_MANY_REQUESTS_TEXT = 'Too many requests';
-const RATE_LIMIT_BACKOFF_MS = 65_000;
+const RATE_LIMIT_BACKOFF_MS = 1_500;
 const MAX_AUTH_ATTEMPTS = 3;
 const TRANSIENT_RETRY_DELAY_MS = 1_500;
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function registerAndLogin(
   page: Page,
@@ -42,7 +44,7 @@ async function registerWithBackoff(page: Page, credentials: AuthCredentials): Pr
       (await page.locator(`text=${RATE_LIMIT_TEXT}`).isVisible()) ||
       (await page.locator(`text=${TOO_MANY_REQUESTS_TEXT}`).isVisible());
     if (attempt < MAX_AUTH_ATTEMPTS - 1) {
-      await page.waitForTimeout(rateLimited ? RATE_LIMIT_BACKOFF_MS : TRANSIENT_RETRY_DELAY_MS);
+      await delay(rateLimited ? RATE_LIMIT_BACKOFF_MS : TRANSIENT_RETRY_DELAY_MS);
       continue;
     }
 
@@ -76,7 +78,7 @@ async function loginWithBackoff(
       (await page.locator(`text=${RATE_LIMIT_TEXT}`).isVisible()) ||
       (await page.locator(`text=${TOO_MANY_REQUESTS_TEXT}`).isVisible());
     if (attempt < MAX_AUTH_ATTEMPTS - 1) {
-      await page.waitForTimeout(rateLimited ? RATE_LIMIT_BACKOFF_MS : TRANSIENT_RETRY_DELAY_MS);
+      await delay(rateLimited ? RATE_LIMIT_BACKOFF_MS : TRANSIENT_RETRY_DELAY_MS);
       continue;
     }
 

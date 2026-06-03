@@ -35,9 +35,15 @@ test.describe('Imports Smoke Flow', () => {
       },
     });
     expect(categoriesResponse.status()).toBe(200);
-    const categoriesPayload = await categoriesResponse.json();
-    const otherCategory = categoriesPayload.items.find((item: { name: string; public_id: string }) => item.name === 'Other');
+    const categoriesPayload = (await categoriesResponse.json()) as {
+      items?: Array<{ name: string; public_id: string }>;
+    };
+    expect(Array.isArray(categoriesPayload.items)).toBe(true);
+    const otherCategory = categoriesPayload.items?.find((item) => item.name === 'Other');
     expect(otherCategory).toBeTruthy();
+    if (!otherCategory) {
+      throw new Error('Expected default Other spending category to exist');
+    }
 
     const nowIso = new Date().toISOString();
     const csvContent = [
