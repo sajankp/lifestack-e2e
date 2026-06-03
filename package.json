@@ -4,10 +4,14 @@
   "description": "End-to-end Playwright tests for Lifestack",
   "main": "index.js",
   "scripts": {
+    "stack:up": "node ./scripts/stack-up.mjs",
+    "stack:down": "node ./scripts/stack-down.mjs",
     "precheck": "node ./scripts/precheck.mjs",
     "test": "npm run test:full",
     "test:smoke": "npm run precheck && playwright test --grep @smoke",
-    "test:full": "npm run precheck && playwright test"
+    "test:full": "npm run precheck && playwright test",
+    "test:smoke:stack": "node ./scripts/run-stack-tests.mjs smoke",
+    "test:full:stack": "node ./scripts/run-stack-tests.mjs full"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

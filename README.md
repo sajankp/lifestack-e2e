@@ -24,13 +24,18 @@ From the `lifestack-e2e` directory, start the containers in detached mode:
 docker compose -f docker-compose.e2e.yml up -d --build
 ```
 
+Or use the repo-managed bootstrap:
+```bash
+npm run stack:up
+```
+
 ### 3. Run Database Migrations
 Once Postgres is up, run the database migrations on the `api-e2e` container:
 ```bash
 docker compose -f docker-compose.e2e.yml exec api-e2e alembic upgrade head
 ```
 
-This migration step is still manual today. The suite is real full-stack coverage, but stack bootstrap has not yet been reduced to a single command.
+`npm run stack:up` already includes the migration step.
 
 ### 4. Run Environment Precheck
 Run a fail-fast precheck for Web/API/DB connectivity:
@@ -50,6 +55,11 @@ E2E_DATABASE_URL=postgresql+asyncpg://lifestack_e2e:lifestack_e2e@localhost:5433
 npm run test:smoke
 ```
 
+Single-command orchestration is also available:
+```bash
+npm run test:smoke:stack
+```
+
 ### 6. Run Full Suite
 Execute all Playwright integration tests:
 ```bash
@@ -59,10 +69,20 @@ E2E_DATABASE_URL=postgresql+asyncpg://lifestack_e2e:lifestack_e2e@localhost:5433
 npm run test:full
 ```
 
+Single-command orchestration is also available:
+```bash
+npm run test:full:stack
+```
+
 ### 7. Tear Down the Environment
 To stop the containers and delete the volumes (wiping the database):
 ```bash
 docker compose -f docker-compose.e2e.yml down -v
+```
+
+Equivalent repo-managed teardown:
+```bash
+npm run stack:down
 ```
 
 ---

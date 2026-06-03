@@ -1,48 +1,57 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 import type { Locator } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 
 function triggerBudgetGuardrails(username: string) {
-  const env = { ...process.env };
-  env.DATABASE_URL =
-    process.env.E2E_DATABASE_URL ??
-    process.env.DATABASE_URL ??
-    'postgresql+asyncpg://lifestack_e2e:lifestack_e2e@localhost:5433/lifestack_e2e';
-  env.E2E_GUARDRAIL_USERNAME = username;
+  const guardrailScript = [
+    'import asyncio',
+    'import os',
+    'from sqlalchemy import select',
+    'from app.application.workflows import evaluate_workspace_budget_guardrails',
+    'from app.auth.models import User',
+    'from app.core.database import postgres',
+    'from app.platform.models import Workspace, WorkspaceMembership',
+    '',
+    'async def main() -> None:',
+    "    username = os.environ['E2E_GUARDRAIL_USERNAME']",
+    '    async with postgres.async_session_maker() as session, session.begin():',
+    '        result = await session.execute(',
+    '            select(Workspace)',
+    '            .join(WorkspaceMembership, WorkspaceMembership.workspace_id == Workspace.id)',
+    '            .join(User, User.id == WorkspaceMembership.user_id)',
+    '            .where(User.username == username)',
+    '            .limit(1)',
+    '        )',
+    '        workspace = result.scalar_one_or_none()',
+    '        if workspace is None:',
+    "            raise RuntimeError(f'No workspace membership found for user {username}')",
+    '        await evaluate_workspace_budget_guardrails(session, workspace)',
+    '',
+    'asyncio.run(main())',
+  ].join('\n');
 
-  // Trigger the workflow for this specific workspace to avoid scheduler lock races.
-  execSync(
+  // Trigger the workflow inside the API container to keep the E2E lane self-contained.
+  execFileSync(
+    'docker',
     [
-      "uv run python - <<'PY'",
-      'import asyncio',
-      'import os',
-      'from sqlalchemy import select',
-      'from app.application.workflows import evaluate_workspace_budget_guardrails',
-      'from app.auth.models import User',
-      'from app.core.database import postgres',
-      'from app.platform.models import Workspace, WorkspaceMembership',
-      '',
-      'async def main() -> None:',
-      "    username = os.environ['E2E_GUARDRAIL_USERNAME']",
-      '    async with postgres.async_session_maker() as session, session.begin():',
-      '        result = await session.execute(',
-      '            select(Workspace)',
-      '            .join(WorkspaceMembership, WorkspaceMembership.workspace_id == Workspace.id)',
-      '            .join(User, User.id == WorkspaceMembership.user_id)',
-      '            .where(User.username == username)',
-      '            .limit(1)',
-      '        )',
-      '        workspace = result.scalar_one_or_none()',
-      '        if workspace is None:',
-      "            raise RuntimeError(f'No workspace membership found for user {username}')",
-      '        await evaluate_workspace_budget_guardrails(session, workspace)',
-      '',
-      'asyncio.run(main())',
-      'PY',
-    ].join('\n'),
-    { cwd: '../lifestack-api', env }
+      'compose',
+      '-f',
+      'docker-compose.e2e.yml',
+      'exec',
+      '-T',
+      '-e',
+      `E2E_GUARDRAIL_USERNAME=${username}`,
+      'api-e2e',
+      'python',
+      '-c',
+      guardrailScript,
+    ],
+    {
+      cwd: process.cwd(),
+      stdio: 'pipe',
+    }
   );
 }
 
