@@ -1,75 +1,89 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
+import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 import type { Locator } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 
 function triggerRecurringJob(username: string, description: string) {
-  const env = { ...process.env };
-  env.DATABASE_URL =
-    process.env.E2E_DATABASE_URL ??
-    process.env.DATABASE_URL ??
-    'postgresql+asyncpg://lifestack_e2e:lifestack_e2e@localhost:5433/lifestack_e2e';
-  env.E2E_RECURRING_USERNAME = username;
-  env.E2E_RECURRING_DESCRIPTION = description;
+  const recurringScript = [
+    'import asyncio',
+    'from datetime import UTC, datetime',
+    'import os',
+    'from sqlalchemy import select',
+    'from app.application.workflows import process_workspace_recurring_transactions',
+    'from app.auth.models import User',
+    'from app.core.database import postgres',
+    'from app.platform.models import Workspace, WorkspaceMembership',
+    'from app.spending.models import RecurringTransaction',
+    '',
+    'async def main() -> None:',
+    "    username = os.environ['E2E_RECURRING_USERNAME']",
+    '    async with postgres.async_session_maker() as session, session.begin():',
+    '        result = await session.execute(',
+    '            select(Workspace)',
+    '            .join(WorkspaceMembership, WorkspaceMembership.workspace_id == Workspace.id)',
+    '            .join(User, User.id == WorkspaceMembership.user_id)',
+    '            .where(User.username == username)',
+    '            .limit(1)',
+    '        )',
+    '        workspace = result.scalar_one_or_none()',
+    '        if workspace is None:',
+    "            raise RuntimeError(f'No workspace membership found for user {username}')",
+    "        rule_description = os.environ['E2E_RECURRING_DESCRIPTION']",
+    '        recurrence_result = await session.execute(',
+    '            select(RecurringTransaction).where(',
+    '                RecurringTransaction.workspace_id == workspace.id,',
+    '                RecurringTransaction.description == rule_description,',
+    '                RecurringTransaction.is_active == True,',
+    '            )',
+    '        )',
+    '        recurrence = recurrence_result.scalar_one_or_none()',
+    '        if recurrence is None:',
+    "            raise RuntimeError(f'Recurring rule not found for description {rule_description}')",
+    '        recurrence.next_due_date = datetime.now(UTC).date()',
+    '        session.add(recurrence)',
+    '        await session.flush()',
+    '        await process_workspace_recurring_transactions(session, workspace)',
+    '',
+    'asyncio.run(main())',
+  ].join('\n');
 
-  // Trigger recurring generation for this specific workspace to avoid scheduler lock races.
-  execSync(
+  execFileSync(
+    'docker',
     [
-      "uv run python - <<'PY'",
-      'import asyncio',
-      'from datetime import UTC, datetime',
-      'import os',
-      'from sqlalchemy import select',
-      'from app.application.workflows import process_workspace_recurring_transactions',
-      'from app.auth.models import User',
-      'from app.core.database import postgres',
-      'from app.platform.models import Workspace, WorkspaceMembership',
-      'from app.spending.models import RecurringTransaction',
-      '',
-      'async def main() -> None:',
-      "    username = os.environ['E2E_RECURRING_USERNAME']",
-      '    async with postgres.async_session_maker() as session, session.begin():',
-      '        result = await session.execute(',
-      '            select(Workspace)',
-      '            .join(WorkspaceMembership, WorkspaceMembership.workspace_id == Workspace.id)',
-      '            .join(User, User.id == WorkspaceMembership.user_id)',
-      '            .where(User.username == username)',
-      '            .limit(1)',
-      '        )',
-      '        workspace = result.scalar_one_or_none()',
-      '        if workspace is None:',
-      "            raise RuntimeError(f'No workspace membership found for user {username}')",
-      "        rule_description = os.environ['E2E_RECURRING_DESCRIPTION']",
-      '        recurrence_result = await session.execute(',
-      '            select(RecurringTransaction).where(',
-      '                RecurringTransaction.workspace_id == workspace.id,',
-      '                RecurringTransaction.description == rule_description,',
-      '                RecurringTransaction.is_active == True,',
-      '            )',
-      '        )',
-      '        recurrence = recurrence_result.scalar_one_or_none()',
-      '        if recurrence is None:',
-      "            raise RuntimeError(f'Recurring rule not found for description {rule_description}')",
-      '        recurrence.next_due_date = datetime.now(UTC).date()',
-      '        session.add(recurrence)',
-      '        await session.flush()',
-      '        await process_workspace_recurring_transactions(session, workspace)',
-      '',
-      'asyncio.run(main())',
-      'PY',
-    ].join('\n'),
-    { cwd: '../lifestack-api', env }
+      'compose',
+      '-f',
+      'docker-compose.e2e.yml',
+      'exec',
+      '-T',
+      '-e',
+      `E2E_RECURRING_USERNAME=${username}`,
+      '-e',
+      `E2E_RECURRING_DESCRIPTION=${description}`,
+      'api-e2e',
+      'python',
+      '-c',
+      recurringScript,
+    ],
+    {
+      cwd: process.cwd(),
+      stdio: 'pipe',
+    }
   );
 }
 
 test.describe('Spending Recurring Transactions E2E Flow', () => {
-  const timestamp = Date.now();
-  const testEmail = `e2e-recurring-${timestamp}@example.com`;
-  const testUsername = `e2e_recurring_${timestamp}`;
+  let testEmail = '';
+  let testUsername = '';
+  let ruleDescription = '';
   const testPassword = 'Password123!';
-  const ruleDescription = `Netflix Sub ${timestamp}`;
 
   test.beforeEach(async ({ page, baseURL }) => {
+    const uniqueId = randomUUID();
+    testEmail = `e2e-recurring-${uniqueId}@example.com`;
+    testUsername = `e2e_recurring_${uniqueId.replace(/-/g, '_')}`;
+    ruleDescription = `Netflix Sub ${uniqueId.slice(0, 8)}`;
+
     await registerAndLogin(page, baseURL, {
       email: testEmail,
       username: testUsername,

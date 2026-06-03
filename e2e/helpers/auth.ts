@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
 
 type AuthCredentials = {
   email: string;
@@ -69,7 +69,6 @@ async function loginWithBackoff(
       .catch(() => false);
 
     if (landedOnDashboard) {
-      await expect(page).toHaveURL(`${resolvedBaseURL}/`, { timeout: 10000 });
       return;
     }
 
