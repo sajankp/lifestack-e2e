@@ -121,7 +121,7 @@ test.describe('Workspace RBAC enforcement @rbac', () => {
         description: 'RBAC test transaction',
         type: 'expense',
         date: new Date().toISOString().slice(0, 10),
-        category_id: 'nonexistent', // Will 403 before reaching category validation
+        category_id: '00000000-0000-0000-0000-000000000000', // Valid UUID so RBAC fails before validation
       },
     });
     expect(txRes.status()).toBe(403);

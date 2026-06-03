@@ -22,7 +22,7 @@ test.describe('Todo Smoke Flow', () => {
   test('should create and complete a todo task @smoke', async ({ page }) => {
     const taskTitle = `Smoke Todo ${Date.now()}`;
 
-    await page.click('a[href="/todo"]');
+    await page.getByTestId('nav-todo').click();
     await expect(page.getByRole('heading', { name: 'Todos' })).toBeVisible();
 
     await page.getByTestId('todo-new-title').fill(taskTitle);

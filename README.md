@@ -30,6 +30,8 @@ Once Postgres is up, run the database migrations on the `api-e2e` container:
 docker compose -f docker-compose.e2e.yml exec api-e2e alembic upgrade head
 ```
 
+This migration step is still manual today. The suite is real full-stack coverage, but stack bootstrap has not yet been reduced to a single command.
+
 ### 4. Run Environment Precheck
 Run a fail-fast precheck for Web/API/DB connectivity:
 ```bash

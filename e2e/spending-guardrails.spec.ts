@@ -113,13 +113,14 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     await expect
       .poll(
         async () => {
-          await page.reload();
-          const response = await page
+          const responsePromise = page
             .waitForResponse(
               (res) => res.request().method() === 'GET' && res.url().includes('/v1/todo/'),
               { timeout: 5_000 }
             )
             .catch(() => null);
+          await page.reload();
+          const response = await responsePromise;
 
           if (!response) {
             return 0;
