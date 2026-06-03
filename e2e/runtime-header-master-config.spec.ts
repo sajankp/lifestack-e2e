@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { registerAndLogin } from './helpers/auth';
 
 test.describe('Runtime Header + Master Config Edit Flow', () => {
   const timestamp = Date.now();
@@ -7,17 +8,11 @@ test.describe('Runtime Header + Master Config Edit Flow', () => {
   const testPassword = 'Password123!';
 
   test.beforeEach(async ({ page, baseURL }) => {
-    await page.goto('/register');
-    await page.fill('input[placeholder="Email address"]', testEmail);
-    await page.fill('input[placeholder="Username"]', testUsername);
-    await page.fill('input[placeholder="Password"]', testPassword);
-    await page.click('button[type="submit"]');
-
-    await page.goto('/login');
-    await page.fill('input[placeholder="Email address"]', testEmail);
-    await page.fill('input[placeholder="Password"]', testPassword);
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(`${baseURL}/`, { timeout: 10000 });
+    await registerAndLogin(page, baseURL, {
+      email: testEmail,
+      username: testUsername,
+      password: testPassword,
+    });
   });
 
   test('shows global notifications header and supports master-config edit actions', async ({ page }) => {
@@ -26,34 +21,38 @@ test.describe('Runtime Header + Master Config Edit Flow', () => {
     const categoryEditedName = `Edited Category ${timestamp}`;
 
     // Header is global across protected routes.
-    await expect(page.locator('header').first().getByRole('link', { name: /notifications/i })).toBeVisible();
-    await expect(page.locator('header').first().getByRole('button', { name: /logout/i })).toBeVisible();
+    await expect(page.getByTestId('header-notifications')).toBeVisible();
+    await expect(page.getByTestId('header-logout')).toBeVisible();
 
     // Open Master Config and create an account.
-    await page.click('a[href="/settings"]');
+    await page.getByTestId('nav-settings').click();
     await expect(page.getByRole('heading', { name: 'Master Configuration' })).toBeVisible();
 
-    const accountsSection = page.locator('section').filter({ hasText: 'Accounts and Wallets' });
-    await accountsSection.getByPlaceholder('Account name').fill(accountName);
-    await accountsSection.locator('[role="combobox"]').filter({ hasText: 'Default currency' }).click();
+    const accountsSection = page.getByTestId('master-accounts-section');
+    await page.getByTestId('master-account-name').fill(accountName);
+    await page.getByTestId('master-account-currency').click();
     await page.getByRole('option', { name: /^USD\b/ }).click();
-    await accountsSection.getByRole('button', { name: 'Create Account' }).click();
+    await page.getByTestId('master-account-create').click();
     await expect(accountsSection.locator(`text=${accountName}`)).toBeVisible();
 
     // Edit account from row pen icon.
-    await accountsSection.locator(`tr:has-text("${accountName}") button[title="Edit account"]`).click();
-    const accountEditor = page.locator('text=Edit account').locator('..').locator('..');
-    await accountEditor.getByPlaceholder('Account name').fill(accountEditedName);
-    await accountEditor.getByRole('button', { name: 'Save Account' }).click();
+    await accountsSection
+      .locator('[data-testid^="master-account-row-"]')
+      .filter({ hasText: accountName })
+      .locator('[data-testid^="master-account-edit-"]')
+      .click();
+    const accountEditor = page.getByTestId('master-account-editor');
+    await accountEditor.getByTestId('master-account-edit-name').fill(accountEditedName);
+    await accountEditor.getByTestId('master-account-save').click();
     await expect(accountsSection.locator(`text=${accountEditedName}`)).toBeVisible();
 
     // Edit an existing category from row pen icon.
-    const categoriesSection = page.locator('section').filter({ hasText: 'Categories and Recurrence' });
-    const firstCategoryRow = categoriesSection.locator('tbody tr').first();
-    await firstCategoryRow.locator('button[title="Edit category"]').click();
-    const categoryEditor = page.locator('text=Edit category').locator('..').locator('..');
-    await categoryEditor.getByPlaceholder('Category name').fill(categoryEditedName);
-    await categoryEditor.getByRole('button', { name: 'Save Category' }).click();
+    const categoriesSection = page.getByTestId('master-categories-section');
+    const firstCategoryRow = categoriesSection.locator('[data-testid^="master-category-row-"]').first();
+    await firstCategoryRow.locator('[data-testid^="master-category-edit-"]').click();
+    const categoryEditor = page.getByTestId('master-category-editor');
+    await categoryEditor.getByTestId('master-category-edit-name').fill(categoryEditedName);
+    await categoryEditor.getByTestId('master-category-save').click();
     await expect(categoriesSection.locator(`text=${categoryEditedName}`)).toBeVisible();
   });
 });

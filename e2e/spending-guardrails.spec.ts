@@ -1,80 +1,157 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
+import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
+import type { Locator } from '@playwright/test';
+import { registerAndLogin } from './helpers/auth';
 
-function triggerBudgetGuardrails() {
-  const env = { ...process.env };
-  if (process.env.E2E_DATABASE_URL) {
-    env.DATABASE_URL = process.env.E2E_DATABASE_URL;
-  }
-  // Trigger the background guardrails job directly on the host using the CLI
-  execSync(
-    'uv run python -c "import asyncio; from app.application.jobs import budget_guardrails_job; asyncio.run(budget_guardrails_job())"',
-    { cwd: '../lifestack-api', env }
+function triggerBudgetGuardrails(username: string) {
+  const guardrailScript = [
+    'import asyncio',
+    'import os',
+    'from sqlalchemy import select',
+    'from app.application.workflows import evaluate_workspace_budget_guardrails',
+    'from app.auth.models import User',
+    'from app.core.database import postgres',
+    'from app.platform.models import Workspace, WorkspaceMembership',
+    '',
+    'async def main() -> None:',
+    "    username = os.environ['E2E_GUARDRAIL_USERNAME']",
+    '    async with postgres.async_session_maker() as session, session.begin():',
+    '        result = await session.execute(',
+    '            select(Workspace)',
+    '            .join(WorkspaceMembership, WorkspaceMembership.workspace_id == Workspace.id)',
+    '            .join(User, User.id == WorkspaceMembership.user_id)',
+    '            .where(User.username == username)',
+    '            .limit(1)',
+    '        )',
+    '        workspace = result.scalar_one_or_none()',
+    '        if workspace is None:',
+    "            raise RuntimeError(f'No workspace membership found for user {username}')",
+    '        await evaluate_workspace_budget_guardrails(session, workspace)',
+    '',
+    'asyncio.run(main())',
+  ].join('\n');
+
+  // Trigger the workflow inside the API container to keep the E2E lane self-contained.
+  execFileSync(
+    'docker',
+    [
+      'compose',
+      '-f',
+      'docker-compose.e2e.yml',
+      'exec',
+      '-T',
+      '-e',
+      `E2E_GUARDRAIL_USERNAME=${username}`,
+      'api-e2e',
+      'python',
+      '-c',
+      guardrailScript,
+    ],
+    {
+      cwd: process.cwd(),
+      stdio: 'pipe',
+    }
   );
 }
 
 test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
-  const timestamp = Date.now();
-  const testEmail = `e2e-spending-${timestamp}@example.com`;
-  const testUsername = `e2e_spending_${timestamp}`;
+  let testEmail = '';
+  let testUsername = '';
+  let customCategory = '';
   const testPassword = 'Password123!';
-  const customCategory = `Dining Out ${timestamp}`;
 
   test.beforeEach(async ({ page, baseURL }) => {
-    // Register and login a fresh user for this test file
-    await page.goto('/register');
-    await page.fill('input[placeholder="Email address"]', testEmail);
-    await page.fill('input[placeholder="Username"]', testUsername);
-    await page.fill('input[placeholder="Password"]', testPassword);
-    await page.click('button[type="submit"]');
+    const uniqueId = randomUUID();
+    testEmail = `e2e-spending-${uniqueId}@example.com`;
+    testUsername = `e2e_spending_${uniqueId.replace(/-/g, '_')}`;
+    customCategory = `Dining Out ${uniqueId.slice(0, 8)}`;
 
-    await page.goto('/login');
-    await page.fill('input[placeholder="Email address"]', testEmail);
-    await page.fill('input[placeholder="Password"]', testPassword);
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(`${baseURL}/`, { timeout: 10000 });
+    await registerAndLogin(page, baseURL, {
+      email: testEmail,
+      username: testUsername,
+      password: testPassword,
+    });
   });
 
-  test('should create custom category, set budget, log transaction, and trigger warning todo', async ({ page }) => {
+  test('should create custom category, set budget, log transaction, and trigger warning todo @smoke', async ({ page }) => {
+    const selectFromCombobox = async (trigger: Locator, optionName: string) => {
+      await trigger.click();
+      await page.getByRole('option', { name: optionName, exact: true }).click();
+    };
+
     // 1. Navigate to Spending tab
-    await page.click('a[href="/spending"]');
+    await page.getByTestId('nav-spending').click();
     await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
 
     // 2. Open Manage Categories and add a custom category
-    await page.click('button:has-text("Manage Categories")');
-    await page.fill('input[placeholder="e.g. Groceries"]', customCategory);
-    await page.fill('input[placeholder="🧾"]', '🍔');
-    await page.click('button[type="submit"]:has-text("Create Category")');
+    await page.getByTestId('spending-open-manage-categories').click();
+    await page.getByTestId('spending-category-name').fill(customCategory);
+    await page.getByTestId('spending-category-icon').fill('🍔');
+    await page.getByTestId('spending-category-create').click();
 
     // 3. Set a budget for the custom category
-    await page.click('button:has-text("Set Budget")');
-    await page.click('button[aria-haspopup="listbox"]:has-text("Select category")');
-    await page.click(`role=option[name="${customCategory}"]`);
-    await page.fill('input[placeholder="0.00"]', '100');
-    await page.click('button[type="submit"]:has-text("Save Budget")');
+    await page.getByTestId('spending-open-set-budget').click();
+    const budgetForm = page.locator('form').filter({ has: page.getByRole('button', { name: 'Save Budget' }) }).first();
+    await selectFromCombobox(page.getByTestId('spending-budget-category'), customCategory);
+    await budgetForm.getByRole('spinbutton', { name: 'Budget Limit' }).fill('100');
+    await page.getByTestId('spending-budget-save').click();
 
     // Verify budget card is created
-    await page.click('button:has-text("Budgets")');
+    await page.getByTestId('spending-tab-budgets').click();
     await expect(page.locator(`text=${customCategory}`)).toBeVisible();
 
     // 4. Log a transaction breaching warning threshold (95%)
-    await page.click('button:has-text("New Transaction")');
-    await page.fill('form input[type="number"][placeholder="0.00"]', '95');
-    await page.click('form button[aria-haspopup="listbox"]:has-text("Select category")');
-    await page.click(`role=option[name="${customCategory}"]`);
-    await page.fill('input[placeholder="What did you spend on?"]', 'E2E Feast');
-    await page.click('button[type="submit"]:has-text("Save Transaction")');
+    await page.getByTestId('spending-open-new-transaction').click();
+    await page.getByTestId('spending-transaction-amount').fill('95');
+    await selectFromCombobox(page.getByTestId('spending-transaction-category'), customCategory);
+    await page.getByTestId('spending-transaction-description').fill('E2E Feast');
+    await page.getByTestId('spending-transaction-save').click();
 
     // Verify transaction appears in the list
-    await page.click('button:has-text("Transactions")');
+    await page.getByTestId('spending-tab-transactions').click();
     await expect(page.locator('text=E2E Feast')).toBeVisible();
 
     // 5. Trigger the background budget guardrails evaluator
-    triggerBudgetGuardrails();
+    triggerBudgetGuardrails(testUsername);
 
     // 6. Navigate to Todo page and verify warning todo exists
-    await page.click('a[href="/todo"]');
+    await page.getByTestId('nav-todo').click();
     await expect(page.getByRole('heading', { name: 'Todos' })).toBeVisible();
-    await expect(page.locator(`text=[Budget] Warning: ${customCategory}`)).toBeVisible();
+
+    await expect
+      .poll(
+        async () => {
+          const responsePromise = page
+            .waitForResponse(
+              (res) => res.request().method() === 'GET' && res.url().includes('/v1/todo/'),
+              { timeout: 5_000 }
+            )
+            .catch(() => null);
+          await page.reload();
+          const response = await responsePromise;
+
+          if (!response) {
+            return 0;
+          }
+
+          const payload = (await response.json()) as { items?: Array<{ title?: string }> };
+          const foundInApi = (payload.items ?? []).some((item) => item.title?.includes(customCategory));
+          if (!foundInApi) {
+            return 0;
+          }
+
+          return await page
+            .locator('[data-testid^="todo-item-"] h3')
+            .filter({ hasText: customCategory })
+            .count();
+        },
+        {
+          timeout: 30_000,
+          intervals: [1_000, 1_500, 2_000],
+          message: `Expected guardrail todo to appear for category ${customCategory}`,
+        }
+      )
+      .toBeGreaterThan(0);
   });
 });

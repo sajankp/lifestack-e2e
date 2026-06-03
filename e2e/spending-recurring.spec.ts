@@ -1,96 +1,183 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
+import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
+import type { Locator } from '@playwright/test';
+import { registerAndLogin } from './helpers/auth';
 
-function triggerRecurringJob() {
-  const env = { ...process.env };
-  if (process.env.E2E_DATABASE_URL) {
-    env.DATABASE_URL = process.env.E2E_DATABASE_URL;
-  }
-  // Trigger the background recurring job directly on the host using the CLI
-  execSync(
-    'uv run python -c "import asyncio; from app.application.jobs import recurring_transactions_job; asyncio.run(recurring_transactions_job())"',
-    { cwd: '../lifestack-api', env }
+function triggerRecurringJob(username: string, description: string) {
+  const recurringScript = [
+    'import asyncio',
+    'from datetime import UTC, datetime',
+    'import os',
+    'from sqlalchemy import select',
+    'from app.application.workflows import process_workspace_recurring_transactions',
+    'from app.auth.models import User',
+    'from app.core.database import postgres',
+    'from app.platform.models import Workspace, WorkspaceMembership',
+    'from app.spending.models import RecurringTransaction',
+    '',
+    'async def main() -> None:',
+    "    username = os.environ['E2E_RECURRING_USERNAME']",
+    '    async with postgres.async_session_maker() as session, session.begin():',
+    '        result = await session.execute(',
+    '            select(Workspace)',
+    '            .join(WorkspaceMembership, WorkspaceMembership.workspace_id == Workspace.id)',
+    '            .join(User, User.id == WorkspaceMembership.user_id)',
+    '            .where(User.username == username)',
+    '            .limit(1)',
+    '        )',
+    '        workspace = result.scalar_one_or_none()',
+    '        if workspace is None:',
+    "            raise RuntimeError(f'No workspace membership found for user {username}')",
+    "        rule_description = os.environ['E2E_RECURRING_DESCRIPTION']",
+    '        recurrence_result = await session.execute(',
+    '            select(RecurringTransaction).where(',
+    '                RecurringTransaction.workspace_id == workspace.id,',
+    '                RecurringTransaction.description == rule_description,',
+    '                RecurringTransaction.is_active == True,',
+    '            )',
+    '        )',
+    '        recurrence = recurrence_result.scalar_one_or_none()',
+    '        if recurrence is None:',
+    "            raise RuntimeError(f'Recurring rule not found for description {rule_description}')",
+    '        recurrence.next_due_date = datetime.now(UTC).date()',
+    '        session.add(recurrence)',
+    '        await session.flush()',
+    '        await process_workspace_recurring_transactions(session, workspace)',
+    '',
+    'asyncio.run(main())',
+  ].join('\n');
+
+  execFileSync(
+    'docker',
+    [
+      'compose',
+      '-f',
+      'docker-compose.e2e.yml',
+      'exec',
+      '-T',
+      '-e',
+      `E2E_RECURRING_USERNAME=${username}`,
+      '-e',
+      `E2E_RECURRING_DESCRIPTION=${description}`,
+      'api-e2e',
+      'python',
+      '-c',
+      recurringScript,
+    ],
+    {
+      cwd: process.cwd(),
+      stdio: 'pipe',
+    }
   );
 }
 
 test.describe('Spending Recurring Transactions E2E Flow', () => {
-  const timestamp = Date.now();
-  const testEmail = `e2e-recurring-${timestamp}@example.com`;
-  const testUsername = `e2e_recurring_${timestamp}`;
+  let testEmail = '';
+  let testUsername = '';
+  let ruleDescription = '';
   const testPassword = 'Password123!';
-  const ruleDescription = `Netflix Sub ${timestamp}`;
 
   test.beforeEach(async ({ page, baseURL }) => {
-    // Register and login a fresh user for this test file
-    await page.goto('/register');
-    await page.fill('input[placeholder="Email address"]', testEmail);
-    await page.fill('input[placeholder="Username"]', testUsername);
-    await page.fill('input[placeholder="Password"]', testPassword);
-    await page.click('button[type="submit"]');
+    const uniqueId = randomUUID();
+    testEmail = `e2e-recurring-${uniqueId}@example.com`;
+    testUsername = `e2e_recurring_${uniqueId.replace(/-/g, '_')}`;
+    ruleDescription = `Netflix Sub ${uniqueId.slice(0, 8)}`;
 
-    await page.goto('/login');
-    await page.fill('input[placeholder="Email address"]', testEmail);
-    await page.fill('input[placeholder="Password"]', testPassword);
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(`${baseURL}/`, { timeout: 10000 });
+    await registerAndLogin(page, baseURL, {
+      email: testEmail,
+      username: testUsername,
+      password: testPassword,
+    });
   });
 
   test('should create, edit, run generation, and deactivate a recurring rule', async ({ page }) => {
+    const selectFromCombobox = async (trigger: Locator, optionName: string) => {
+      await trigger.click();
+      await page.getByRole('option', { name: optionName, exact: true }).click();
+    };
+
     // 1. Navigate to Spending page
-    await page.click('a[href="/spending"]');
+    await page.getByTestId('nav-spending').click();
     await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
 
     // 2. Click Recurring Tab and add a new rule
-    await page.getByRole('button', { name: 'Recurring', exact: true }).click();
-    await page.getByRole('button', { name: 'Add Recurring', exact: true }).click();
+    await page.getByTestId('spending-tab-recurring').click();
+    await page.getByTestId('spending-open-add-recurring').click();
 
     // 3. Fill Recurring Rule modal
-    await page.locator('form').getByRole('button', { name: 'Select category' }).click();
-    await page.click('role=option[name="Food & Dining"]');
+    await selectFromCombobox(page.getByTestId('spending-recurring-category'), 'Food & Dining');
 
     // Amount
-    await page.fill('input[id="rec-amount"]', '14.99');
+    await page.getByTestId('spending-recurring-amount').fill('14.99');
 
     // Type is expense by default (which we want)
 
     // Frequency: Select Monthly
-    await page.locator('form').getByRole('button', { name: 'Monthly' }).click();
-    await page.click('role=option[name="Monthly"]');
-
-    // Start Date (anchor_date): Use today
-    const todayStr = new Date().toISOString().split('T')[0];
-    await page.fill('input[id="rec-anchor"]', todayStr);
+    await selectFromCombobox(page.getByTestId('spending-recurring-frequency'), 'Monthly');
 
     // Description
-    await page.fill('input[id="rec-desc"]', ruleDescription);
+    await page.getByTestId('spending-recurring-description').fill(ruleDescription);
 
     // Click Create Rule
-    await page.click('button[type="submit"]:has-text("Create Rule")');
+    await page.getByTestId('spending-recurring-create').click();
 
     // 4. Verify rule card is visible in the list
     await expect(page.locator(`text=${ruleDescription}`)).toBeVisible();
     await expect(page.locator(`text=$14.99`)).toBeVisible();
 
     // 5. Edit the rule
-    await page.click('button:has-text("Edit")');
-    await page.fill('input[id="rec-amount"]', '19.99');
-    await page.click('button[type="submit"]:has-text("Update Rule")');
+    await page
+      .locator('[data-testid^="spending-recurring-rule-"]')
+      .filter({ hasText: ruleDescription })
+      .locator('[data-testid^="spending-recurring-edit-"]')
+      .click();
+    await page.getByTestId('spending-recurring-amount').fill('19.99');
+    await page.getByTestId('spending-recurring-update').click();
 
     // Verify updated amount is visible
     await expect(page.locator(`text=$19.99`)).toBeVisible();
 
     // 6. Run the background job to generate the transaction
-    triggerRecurringJob();
+    triggerRecurringJob(testUsername, ruleDescription);
     await page.reload();
 
     // 7. Verify transaction was generated under the Transactions tab
-    await page.getByRole('button', { name: 'Transactions', exact: true }).click();
+    await page.getByTestId('spending-tab-transactions').click();
+    await expect
+      .poll(
+        async () => {
+          const apiBase = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
+          const response = await page.request.get(
+            `${apiBase}/v1/spending/transactions?limit=50&offset=0`
+          );
+          if (!response.ok()) {
+            return false;
+          }
+
+          const payload = (await response.json()) as {
+            items?: Array<{ description?: string; amount?: string | number }>;
+          };
+          return (payload.items ?? []).some(
+            (item) => item.description === ruleDescription && Number(item.amount) === 19.99
+          );
+        },
+        {
+          timeout: 30_000,
+          intervals: [1_000, 1_500, 2_000],
+          message: `Expected recurring transaction to be generated for ${ruleDescription}`,
+        }
+      )
+      .toBeTruthy();
+    await page.reload();
+    await page.getByTestId('spending-tab-transactions').click();
     await expect(page.locator(`text=${ruleDescription}`)).toBeVisible();
     await expect(page.locator('tbody').locator('text=19.99')).toBeVisible();
 
     // 8. Go back to Recurring tab and deactivate the rule
-    await page.getByRole('button', { name: 'Recurring', exact: true }).click();
-    await page.click('button:has-text("Deactivate")');
+    await page.getByTestId('spending-tab-recurring').click();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByTestId('spending-recurring-deactivate').first().click();
 
     // Verify list is empty or doesn't show the active rule anymore
     await expect(page.locator(`text=${ruleDescription}`)).not.toBeVisible();
