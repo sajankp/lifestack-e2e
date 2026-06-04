@@ -97,3 +97,7 @@ npm run stack:down
 - **`e2e/investing-fx.spec.ts`**: Multi-currency brokerage accounts creation (GBP & USD), holding asset creation, setting reporting currency (USD), checking valuation, and look-through exposure analytics.
 - **`e2e/runtime-header-master-config.spec.ts`**: Global header verification (notification icon + logout) and Master Configuration edit actions for accounts and categories.
 - **`e2e/exports.spec.ts`**: JSON and CSV/Zip data export requests, status polling, and download integrity verification.
+- **`e2e/finance-display-settings.spec.ts`**: Workspace/user finance display preference behavior on dashboard totals.
+- **`e2e/rbac.spec.ts`**: Workspace role enforcement for transactions, todos, and finance settings.
+
+The current suite contains 14 specs across 10 files. It is the source of truth for full-stack smoke coverage; repo-local frontend Playwright tests remain frontend-only.
