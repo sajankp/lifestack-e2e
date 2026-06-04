@@ -20,6 +20,12 @@ Checklist for integration test environment and security-sensitive flow coverage.
 - [ ] API and Web URLs are passed through env, not hardcoded to production hosts.
 - [ ] Compose config validation passes before execution.
 - [ ] Playwright suite discovery remains stable.
+- [x] `npm audit --audit-level=high` is available as `npm run security:audit` and runs in CI.
+
+## Verification Log (2026-06-04)
+- Gate 0 dependency audit checks passed:
+  - `npm run security:audit` (0 vulnerabilities)
+  - GitHub workflow YAML parse check
 
 ## Verification Log (2026-05-28)
 - Harness checks passed:
