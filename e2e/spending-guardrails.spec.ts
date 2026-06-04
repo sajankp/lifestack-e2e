@@ -135,7 +135,12 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
             return 0;
           }
 
-          const payload = (await response.json()) as { items?: Array<{ title?: string }> };
+          let payload;
+          try {
+            payload = (await response.json()) as { items?: Array<{ title?: string }> };
+          } catch {
+            return 0;
+          }
           const foundInApi = (payload.items ?? []).some((item) => item.title?.includes(customCategory));
           if (!foundInApi) {
             return 0;

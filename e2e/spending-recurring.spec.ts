@@ -176,10 +176,12 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
 
     // 8. Go back to Recurring tab and deactivate the rule
     await page.getByTestId('spending-tab-recurring').click();
-    page.once('dialog', (dialog) => dialog.accept());
     await page.getByTestId('spending-recurring-deactivate').first().click();
+    await page.getByRole('button', { name: 'Deactivate rule', exact: true }).click();
 
     // Verify list is empty or doesn't show the active rule anymore
-    await expect(page.locator(`text=${ruleDescription}`)).not.toBeVisible();
+    await expect(
+      page.locator('[data-testid^="spending-recurring-rule-"]').filter({ hasText: ruleDescription })
+    ).not.toBeVisible();
   });
 });
