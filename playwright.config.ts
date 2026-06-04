@@ -7,9 +7,12 @@ export default defineConfig({
   timeout: 120_000,
   retries: 1,
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    extraHTTPHeaders: {
+      'Origin': process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174',
+    },
   },
   projects: [
     {

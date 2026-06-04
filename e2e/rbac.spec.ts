@@ -58,19 +58,21 @@ async function registerViaApi(
   const res = await request.post(`${API_BASE}/auth/register`, {
     data: { email: creds.email, username: creds.username, password: creds.password },
   });
-  expect(res.status(), `Register failed: ${await res.text()}`).toBe(201);
-  const body = (await res.json()) as { public_id: string };
-
-  // Fetch own workspace
+  expect([200, 201], `Register failed: ${await res.text()}`).toContain(res.status());
   const loginParams = new URLSearchParams({ username: creds.email, password: creds.password });
-  await request.post(`${API_BASE}/auth/login`, {
+  const loginRes = await request.post(`${API_BASE}/auth/login`, {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     data: loginParams.toString(),
   });
+  expect(loginRes.status()).toBe(200);
+
+  const meRes = await request.get(`${API_BASE}/auth/me`);
+  expect(meRes.status()).toBe(200);
+  const meBody = (await meRes.json()) as { public_id: string };
 
   const wsRes = await request.get(`${API_BASE}/platform/workspaces/`);
   const wsBody = (await wsRes.json()) as { items?: Array<{ public_id: string }> };
-  return { userId: body.public_id, workspaceId: wsBody.items?.[0]?.public_id ?? '' };
+  return { userId: meBody.public_id, workspaceId: wsBody.items?.[0]?.public_id ?? '' };
 }
 
 // ─── RBAC Tests ───────────────────────────────────────────────────────────────
@@ -173,7 +175,7 @@ test.describe('Workspace RBAC enforcement @rbac', () => {
     await request.post(`${API_BASE}/platform/workspaces/${workspaceId}/select`);
 
     // Attempt to update workspace finance settings — must be 403 (requires ADMIN)
-    const settingsRes = await request.patch(`${API_BASE}/finance/settings/workspace`, {
+    const settingsRes = await request.patch(`${API_BASE}/finance/settings`, {
       data: { reporting_currency_code: 'EUR' },
     });
     expect(settingsRes.status()).toBe(403);
@@ -187,8 +189,8 @@ test.describe('Workspace RBAC enforcement @rbac', () => {
     await loginViaApi(request, ownerCreds.email, ownerCreds.password);
 
     // Attempt to update workspace finance settings — must succeed (200/204)
-    const settingsRes = await request.patch(`${API_BASE}/finance/settings/workspace`, {
-      data: { reporting_currency_code: 'EUR' },
+    const settingsRes = await request.patch(`${API_BASE}/finance/settings`, {
+      data: { reporting_currency_code: 'GBP' },
     });
     expect([200, 204], `Settings update failed: ${await settingsRes.text()}`).toContain(
       settingsRes.status(),
