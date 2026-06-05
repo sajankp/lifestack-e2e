@@ -101,3 +101,7 @@ npm run stack:down
 - **`e2e/rbac.spec.ts`**: Workspace role enforcement for transactions, todos, and finance settings.
 
 The current suite contains 14 specs across 10 files. It is the source of truth for full-stack smoke coverage; repo-local frontend Playwright tests remain frontend-only.
+
+## Security Checklist
+
+Release hardening and harness safety checks are tracked in [docs/SECURITY_CHECKLIST.md](docs/SECURITY_CHECKLIST.md).
