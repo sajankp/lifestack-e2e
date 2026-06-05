@@ -120,7 +120,11 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
     await page.getByTestId('spending-recurring-description').fill(ruleDescription);
 
     // Click Create Rule
+    const createPromise = page.waitForResponse(
+      (res) => res.url().includes('/v1/spending/recurring') && res.request().method() === 'POST'
+    );
     await page.getByTestId('spending-recurring-create').click();
+    await createPromise;
 
     // 4. Verify rule card is visible in the list
     await expect(page.locator(`text=${ruleDescription}`)).toBeVisible();
@@ -133,7 +137,11 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
       .locator('[data-testid^="spending-recurring-edit-"]')
       .click();
     await page.getByTestId('spending-recurring-amount').fill('19.99');
+    const updatePromise = page.waitForResponse(
+      (res) => res.url().includes('/v1/spending/recurring/') && (res.request().method() === 'PATCH' || res.request().method() === 'PUT')
+    );
     await page.getByTestId('spending-recurring-update').click();
+    await updatePromise;
 
     // Verify updated amount is visible
     await expect(page.locator(`text=$19.99`)).toBeVisible();
@@ -177,7 +185,11 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
     // 8. Go back to Recurring tab and deactivate the rule
     await page.getByTestId('spending-tab-recurring').click();
     await page.getByTestId('spending-recurring-deactivate').first().click();
+    const deactivatePromise = page.waitForResponse(
+      (res) => res.url().includes('/v1/spending/recurring/') && res.request().method() === 'DELETE'
+    );
     await page.getByRole('button', { name: 'Deactivate rule', exact: true }).click();
+    await deactivatePromise;
 
     // Verify list is empty or doesn't show the active rule anymore
     await expect(
