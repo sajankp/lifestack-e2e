@@ -2,14 +2,19 @@ import { test, expect } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 
 test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
-  const timestamp = Date.now();
-  const testEmail = `e2e-investing-${timestamp}@example.com`;
-  const testUsername = `e2e_investing_${timestamp}`;
+  let testEmail: string;
+  let testUsername: string;
   const testPassword = 'Password123!';
-  const gbpAccount = `GBP Brokerage ${timestamp}`;
-  const usdAccount = `USD Brokerage ${timestamp}`;
+  let gbpAccount: string;
+  let usdAccount: string;
 
-  test.beforeEach(async ({ page, baseURL }) => {
+  test.beforeEach(async ({ page, baseURL }, testInfo) => {
+    const seed = `${Date.now()}-${testInfo.workerIndex}-${testInfo.retry}-${Math.random().toString(36).slice(2, 8)}`;
+    testEmail = `e2e-investing-${seed}@example.com`;
+    testUsername = `e2e_investing_${seed}`;
+    gbpAccount = `GBP Brokerage ${seed}`;
+    usdAccount = `USD Brokerage ${seed}`;
+
     await registerAndLogin(page, baseURL, {
       email: testEmail,
       username: testUsername,
