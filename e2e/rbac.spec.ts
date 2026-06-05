@@ -53,11 +53,19 @@ async function loginViaApi(
   password: string,
 ): Promise<void> {
   const params = new URLSearchParams({ username: email, password });
-  const res = await request.post(`${API_BASE}/auth/login`, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    data: params.toString(),
-  });
-  expect(res.status(), `Login failed for ${email}: ${await res.text()}`).toBe(200);
+  let lastRes: any;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    lastRes = await request.post(`${API_BASE}/auth/login`, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      data: params.toString(),
+    });
+    if (lastRes.status() === 200) {
+      return;
+    }
+    // Wait briefly for active database transactions (e.g. register) to commit
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  expect(lastRes.status(), `Login failed for ${email}: ${await lastRes.text()}`).toBe(200);
 }
 
 /** Register via API, returns the new user's public_id and workspace_id. */
@@ -69,12 +77,9 @@ async function registerViaApi(
     data: { email: creds.email, username: creds.username, password: creds.password },
   });
   expect([200, 201], `Register failed: ${await res.text()}`).toContain(res.status());
-  const loginParams = new URLSearchParams({ username: creds.email, password: creds.password });
-  const loginRes = await request.post(`${API_BASE}/auth/login`, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    data: loginParams.toString(),
-  });
-  expect(loginRes.status()).toBe(200);
+  
+  // Use loginViaApi which handles database commit retries
+  await loginViaApi(request, creds.email, creds.password);
 
   const meRes = await request.get(`${API_BASE}/auth/me`);
   expect(meRes.status()).toBe(200);
