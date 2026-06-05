@@ -26,7 +26,11 @@ test.describe('Todo Smoke Flow', () => {
     await expect(page.getByRole('heading', { name: 'Todos' })).toBeVisible();
 
     await page.getByTestId('todo-new-title').fill(taskTitle);
+    const todoPromise = page.waitForResponse(
+      (res) => res.url().includes('/v1/todo/') && res.request().method() === 'POST'
+    );
     await page.getByTestId('todo-new-submit').click();
+    await todoPromise;
 
     await expect(page.getByRole('heading', { name: taskTitle })).toBeVisible();
     await page.getByRole('button', { name: `Mark todo as complete: ${taskTitle}` }).click();
