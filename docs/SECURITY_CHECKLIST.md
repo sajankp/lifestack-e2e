@@ -25,7 +25,8 @@ Checklist for integration test environment and security-sensitive flow coverage.
 ## Verification Log (2026-06-04)
 - Gate 0 dependency audit checks passed:
   - `npm run security:audit` (0 vulnerabilities)
-  - GitHub workflow YAML parse check
+  - GitHub workflow YAML parse check for `.github/workflows/ci.yml`
+  - CI workflow `.github/workflows/ci.yml` runs `npm run security:audit` on push and pull request events targeting `main`.
 
 ## Verification Log (2026-05-28)
 - Harness checks passed:
