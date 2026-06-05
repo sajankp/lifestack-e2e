@@ -66,10 +66,14 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     const context = page.context();
     const origin = baseURL || 'http://localhost:5173';
     const apiBaseUrl = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8000';
+    const state = await context.storageState();
+    const csrfCookie = state.cookies.find((c: any) => c.name === 'csrf_token');
+    const csrfToken = csrfCookie?.value;
     const settingsResponse = await context.request.patch(`${apiBaseUrl}/v1/finance/settings`, {
       headers: {
         'Origin': origin,
-        'Referer': `${origin}/`
+        'Referer': `${origin}/`,
+        ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
       },
       data: {
         reporting_currency_code: 'USD'
