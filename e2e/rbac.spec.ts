@@ -36,9 +36,10 @@ function makeCredentials(role: string) {
 async function getHeaders(request: import('@playwright/test').APIRequestContext) {
   const state = await request.storageState();
   const csrfCookie = state.cookies.find((c) => c.name === 'csrf_token');
+  const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
   return {
-    'Origin': 'http://localhost:5174',
-    'Referer': 'http://localhost:5174/',
+    'Origin': origin,
+    'Referer': `${origin}/`,
     ...(csrfCookie ? { 'X-CSRF-Token': csrfCookie.value } : {}),
   };
 }
@@ -53,7 +54,7 @@ async function loginViaApi(
   password: string,
 ): Promise<void> {
   const params = new URLSearchParams({ username: email, password });
-  let lastRes: any;
+  let lastRes: import('@playwright/test').APIResponse;
   for (let attempt = 0; attempt < 3; attempt++) {
     lastRes = await request.post(`${API_BASE}/auth/login`, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

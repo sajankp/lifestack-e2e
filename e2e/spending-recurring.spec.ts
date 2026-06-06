@@ -124,7 +124,8 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
       (res) => res.url().includes('/v1/spending/recurring') && res.request().method() === 'POST'
     );
     await page.getByTestId('spending-recurring-create').click();
-    await createPromise;
+    const createResponse = await createPromise;
+    expect(createResponse.ok()).toBeTruthy();
 
     // 4. Verify rule card is visible in the list
     await expect(page.locator(`text=${ruleDescription}`)).toBeVisible();

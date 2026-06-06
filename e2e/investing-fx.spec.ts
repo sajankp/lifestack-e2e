@@ -9,7 +9,7 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
   let usdAccount: string;
 
   test.beforeEach(async ({ page, baseURL }, testInfo) => {
-    const seed = `${Date.now()}-${testInfo.workerIndex}-${testInfo.retry}-${Math.random().toString(36).slice(2, 8)}`;
+    const seed = `${Date.now()}_${testInfo.workerIndex}_${testInfo.retry}_${Math.random().toString(36).slice(2, 8)}`;
     testEmail = `e2e-investing-${seed}@example.com`;
     testUsername = `e2e_investing_${seed}`;
     gbpAccount = `GBP Brokerage ${seed}`;

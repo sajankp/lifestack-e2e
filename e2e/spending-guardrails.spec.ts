@@ -92,7 +92,8 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
       (res) => res.url().includes('/v1/spending/categories') && res.request().method() === 'POST'
     );
     await page.getByTestId('spending-category-create').click();
-    await categoryPromise;
+    const categoryResponse = await categoryPromise;
+    expect(categoryResponse.ok()).toBeTruthy();
 
     // 3. Set a budget for the custom category
     await page.getByTestId('spending-open-set-budget').click();
