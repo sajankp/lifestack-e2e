@@ -88,14 +88,23 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     await page.getByTestId('spending-open-manage-categories').click();
     await page.getByTestId('spending-category-name').fill(customCategory);
     await page.getByTestId('spending-category-icon').fill('🍔');
+    const categoryPromise = page.waitForResponse(
+      (res) => res.url().includes('/v1/spending/categories') && res.request().method() === 'POST'
+    );
     await page.getByTestId('spending-category-create').click();
+    const categoryResponse = await categoryPromise;
+    expect(categoryResponse.ok()).toBeTruthy();
 
     // 3. Set a budget for the custom category
     await page.getByTestId('spending-open-set-budget').click();
     const budgetForm = page.locator('form').filter({ has: page.getByRole('button', { name: 'Save Budget' }) }).first();
     await selectFromCombobox(page.getByTestId('spending-budget-category'), customCategory);
     await budgetForm.getByRole('spinbutton', { name: 'Budget Limit' }).fill('100');
+    const budgetPromise = page.waitForResponse(
+      (res) => res.url().includes('/v1/spending/budgets') && res.request().method() === 'POST'
+    );
     await page.getByTestId('spending-budget-save').click();
+    await budgetPromise;
 
     // Verify budget card is created
     await page.getByTestId('spending-tab-budgets').click();
@@ -106,7 +115,11 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     await page.getByTestId('spending-transaction-amount').fill('95');
     await selectFromCombobox(page.getByTestId('spending-transaction-category'), customCategory);
     await page.getByTestId('spending-transaction-description').fill('E2E Feast');
+    const transactionPromise = page.waitForResponse(
+      (res) => res.url().includes('/v1/spending/transactions') && res.request().method() === 'POST'
+    );
     await page.getByTestId('spending-transaction-save').click();
+    await transactionPromise;
 
     // Verify transaction appears in the list
     await page.getByTestId('spending-tab-transactions').click();

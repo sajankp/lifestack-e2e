@@ -19,12 +19,17 @@ test.describe('Data Export Module E2E Flow', () => {
   test('should trigger, verify, and download a JSON export successfully @smoke', async ({ page, baseURL }) => {
     const context = page.context();
     const origin = baseURL || 'http://localhost:5173';
+    const state = await context.storageState();
+    const csrfCookie = state.cookies.find((c) => c.name === 'csrf_token');
+    const csrfToken = csrfCookie?.value;
+    expect(csrfToken, 'CSRF token should be present in cookies').toBeDefined();
 
     // 2. Request a JSON export using the authenticated browser session
     const postRes = await context.request.post(`${apiBaseUrl}/v1/exports`, {
       headers: {
         'Origin': origin,
-        'Referer': `${origin}/`
+        'Referer': `${origin}/`,
+        ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
       },
       data: {
         format: 'json',
@@ -59,12 +64,17 @@ test.describe('Data Export Module E2E Flow', () => {
   test('should trigger, verify, and download a CSV export successfully', async ({ page, baseURL }) => {
     const context = page.context();
     const origin = baseURL || 'http://localhost:5173';
+    const state = await context.storageState();
+    const csrfCookie = state.cookies.find((c) => c.name === 'csrf_token');
+    const csrfToken = csrfCookie?.value;
+    expect(csrfToken, 'CSRF token should be present in cookies').toBeDefined();
 
     // 2. Request a CSV export
     const postRes = await context.request.post(`${apiBaseUrl}/v1/exports`, {
       headers: {
         'Origin': origin,
-        'Referer': `${origin}/`
+        'Referer': `${origin}/`,
+        ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
       },
       data: {
         format: 'csv',

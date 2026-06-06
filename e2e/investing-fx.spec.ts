@@ -2,14 +2,19 @@ import { test, expect } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 
 test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
-  const timestamp = Date.now();
-  const testEmail = `e2e-investing-${timestamp}@example.com`;
-  const testUsername = `e2e_investing_${timestamp}`;
+  let testEmail: string;
+  let testUsername: string;
   const testPassword = 'Password123!';
-  const gbpAccount = `GBP Brokerage ${timestamp}`;
-  const usdAccount = `USD Brokerage ${timestamp}`;
+  let gbpAccount: string;
+  let usdAccount: string;
 
-  test.beforeEach(async ({ page, baseURL }) => {
+  test.beforeEach(async ({ page, baseURL }, testInfo) => {
+    const seed = `${Date.now()}_${testInfo.workerIndex}_${testInfo.retry}_${Math.random().toString(36).slice(2, 8)}`;
+    testEmail = `e2e-investing-${seed}@example.com`;
+    testUsername = `e2e_investing_${seed}`;
+    gbpAccount = `GBP Brokerage ${seed}`;
+    usdAccount = `USD Brokerage ${seed}`;
+
     await registerAndLogin(page, baseURL, {
       email: testEmail,
       username: testUsername,
@@ -66,10 +71,14 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     const context = page.context();
     const origin = baseURL || 'http://localhost:5173';
     const apiBaseUrl = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8000';
+    const state = await context.storageState();
+    const csrfCookie = state.cookies.find((c: any) => c.name === 'csrf_token');
+    const csrfToken = csrfCookie?.value;
     const settingsResponse = await context.request.patch(`${apiBaseUrl}/v1/finance/settings`, {
       headers: {
         'Origin': origin,
-        'Referer': `${origin}/`
+        'Referer': `${origin}/`,
+        ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
       },
       data: {
         reporting_currency_code: 'USD'
