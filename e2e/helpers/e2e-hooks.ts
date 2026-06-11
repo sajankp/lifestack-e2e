@@ -5,7 +5,8 @@ const apiBaseUrl = () => process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:800
 async function csrfHeaders(page: Page): Promise<Record<string, string>> {
   const cookies = await page.context().cookies(apiBaseUrl());
   const csrf = cookies.find((cookie) => cookie.name === 'csrf_token');
-  return csrf ? { 'X-CSRF-Token': csrf.value } : {};
+  expect(csrf?.value, 'Expected csrf_token cookie before calling E2E hook').toBeTruthy();
+  return { 'X-CSRF-Token': csrf!.value };
 }
 
 async function postE2EHook(
