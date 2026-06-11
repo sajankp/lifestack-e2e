@@ -17,10 +17,18 @@ Checklist for integration test environment and security-sensitive flow coverage.
 - [ ] Export flow validates authenticated download lifecycle.
 
 ## Harness Safety
-- [ ] API and Web URLs are passed through env, not hardcoded to production hosts.
-- [ ] Compose config validation passes before execution.
-- [ ] Playwright suite discovery remains stable.
+- [x] API and Web URLs are passed through env, not hardcoded to production hosts.
+- [x] Compose config validation passes before execution.
+- [x] Playwright suite discovery remains stable.
+- [x] Web dependencies are installed at image-build time with `npm ci`, not at container startup.
+- [x] Spending workflow specs trigger local-only authenticated API hooks instead of running job code through container shell commands.
 - [x] `npm audit --audit-level=high` is available as `npm run security:audit` and runs in CI.
+
+## Verification Log (2026-06-11)
+- Gate 0 harness cleanup:
+  - `web-e2e` builds from `Dockerfile.web-e2e` and no longer runs `npm install` during service startup.
+  - `api-e2e` enables `ENABLE_E2E_TEST_HOOKS=true` for local harness-only workflow triggers.
+  - Guardrail and recurring Playwright specs call authenticated `/v1/e2e/...` hooks instead of `docker compose exec ... python -c`.
 
 ## Verification Log (2026-06-04)
 - Gate 0 dependency audit checks passed:
