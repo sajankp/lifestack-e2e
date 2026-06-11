@@ -54,7 +54,7 @@ async function loginViaApi(
   password: string,
 ): Promise<void> {
   const params = new URLSearchParams({ username: email, password });
-  let lastRes: import('@playwright/test').APIResponse;
+  let lastRes: import('@playwright/test').APIResponse | undefined;
   for (let attempt = 0; attempt < 3; attempt++) {
     lastRes = await request.post(`${API_BASE}/auth/login`, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -66,7 +66,8 @@ async function loginViaApi(
     // Wait briefly for active database transactions (e.g. register) to commit
     await new Promise((resolve) => setTimeout(resolve, 150));
   }
-  expect(lastRes.status(), `Login failed for ${email}: ${await lastRes.text()}`).toBe(200);
+  expect(lastRes, `Login request was not attempted for ${email}`).toBeDefined();
+  expect(lastRes!.status(), `Login failed for ${email}: ${await lastRes!.text()}`).toBe(200);
 }
 
 /** Register via API, returns the new user's public_id and workspace_id. */
