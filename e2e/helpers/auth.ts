@@ -57,7 +57,7 @@ async function loginWithBackoff(
   baseURL: string | undefined,
   credentials: AuthCredentials,
 ): Promise<void> {
-  const resolvedBaseURL = baseURL || 'http://localhost:5173';
+  const resolvedBaseURL = baseURL || 'http://localhost:5174';
 
   for (let attempt = 0; attempt < MAX_AUTH_ATTEMPTS; attempt += 1) {
     await page.goto('/login');

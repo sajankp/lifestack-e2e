@@ -26,7 +26,7 @@ test.describe('Imports Smoke Flow', () => {
 
   test('should validate and commit a spending import @smoke', async ({ page, baseURL }) => {
     const context = page.context();
-    const origin = baseURL || 'http://localhost:5173';
+    const origin = baseURL || 'http://localhost:5174';
 
     const categoriesResponse = await context.request.get(`${apiBaseUrl}/v1/spending/categories`, {
       headers: {
@@ -69,6 +69,92 @@ test.describe('Imports Smoke Flow', () => {
 
       const statusLine = page.locator('p').filter({ hasText: 'Status:' }).first();
       await expect(statusLine).toContainText('completed', { timeout: 10000 });
+    } finally {
+      await fs.rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('should roll back a completed spending import from the UI', async ({ page, baseURL }) => {
+    const context = page.context();
+    const origin = baseURL || 'http://localhost:5174';
+
+    const categoriesResponse = await context.request.get(`${apiBaseUrl}/v1/spending/categories`, {
+      headers: {
+        Origin: origin,
+        Referer: `${origin}/`,
+      },
+    });
+    expect(categoriesResponse.status()).toBe(200);
+    const categoriesPayload = (await categoriesResponse.json()) as {
+      items?: Array<{ name: string; public_id: string }>;
+    };
+    const otherCategory = categoriesPayload.items?.find((item) => item.name === 'Other');
+    expect(otherCategory).toBeTruthy();
+    if (!otherCategory) {
+      throw new Error('Expected default Other spending category to exist');
+    }
+
+    const nowIso = new Date().toISOString();
+    const csvContent = [
+      'occurred_at,type,amount,category,description',
+      `${nowIso},expense,18.75,${otherCategory.public_id},Rollback import row`,
+    ].join('\n');
+
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'lifestack-import-rollback-'));
+    const csvPath = path.join(tmpDir, 'rollback-import.csv');
+    try {
+      await fs.writeFile(csvPath, csvContent, 'utf8');
+
+      await page.click('a[href="/imports"]');
+      await expect(page.getByRole('heading', { name: 'Bulk Imports' })).toBeVisible();
+
+      await page.getByTestId('imports-module-select').selectOption('spending-transactions');
+      await page.getByTestId('imports-file-input').setInputFiles(csvPath);
+      await page.getByTestId('imports-upload-validate').click();
+
+      const commitButton = page.getByTestId('imports-commit');
+      await expect(commitButton).toBeEnabled({ timeout: 10000 });
+      await commitButton.click();
+
+      const statusLine = page.locator('p').filter({ hasText: 'Status:' }).first();
+      await expect(statusLine).toContainText('completed', { timeout: 10000 });
+
+      const transactionsAfterCommit = await context.request.get(
+        `${apiBaseUrl}/v1/spending/transactions`,
+        {
+          headers: {
+            Origin: origin,
+            Referer: `${origin}/`,
+          },
+        },
+      );
+      expect(transactionsAfterCommit.status()).toBe(200);
+      const committedPayload = (await transactionsAfterCommit.json()) as {
+        total: number;
+        items: Array<{ description: string; source_type?: string }>;
+      };
+      expect(committedPayload.total).toBe(1);
+      expect(committedPayload.items[0]?.description).toBe('Rollback import row');
+      expect(committedPayload.items[0]?.source_type).toBe('imported');
+
+      await page.getByTestId('imports-delete').click();
+      await expect(page.getByText('Select an import to inspect validation and commit state.')).toBeVisible({
+        timeout: 10000,
+      });
+      await expect(page.getByText('No import batches yet.')).toBeVisible({ timeout: 10000 });
+
+      const transactionsAfterRollback = await context.request.get(
+        `${apiBaseUrl}/v1/spending/transactions`,
+        {
+          headers: {
+            Origin: origin,
+            Referer: `${origin}/`,
+          },
+        },
+      );
+      expect(transactionsAfterRollback.status()).toBe(200);
+      const rolledBackPayload = (await transactionsAfterRollback.json()) as { total: number };
+      expect(rolledBackPayload.total).toBe(0);
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import net from 'node:net';
 
-const WEB_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173';
-const API_BASE_URL = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8000';
+const WEB_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
+const API_BASE_URL = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8001';
 const DATABASE_URL =
   process.env.E2E_DATABASE_URL ||
   process.env.DATABASE_URL ||

@@ -95,6 +95,9 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     // Total Portfolio Value in USD = 1250 + 750 = 2000 USD.
     // Let's verify that the total portfolio value shows $2,000.00
     await expect(page.getByTestId('investing-portfolio-value')).toContainText('$2,000.00');
+    await expect(page.getByTestId('investing-fx-rates-used')).toContainText('1 GBP');
+    await expect(page.getByTestId('investing-fx-rates-used')).toContainText('1.2500');
+    await expect(page.getByTestId('investing-fx-rates-used')).toContainText('USD');
 
     // 9. Navigate to Look-through Analytics tab
     await page.getByTestId('investing-tab-analytics').click();
@@ -104,5 +107,58 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     // we assert $1,750.00 for both.
     await expect(page.getByTestId('investing-total-direct')).toContainText('$1,750.00');
     await expect(page.getByTestId('investing-total-lookthrough')).toContainText('$1,750.00');
+  });
+
+  test('should show unconverted multi-currency state before reporting currency is configured', async ({ page }) => {
+    const selectOption = async (triggerTestId: string, optionName: string) => {
+      await page.getByTestId(triggerTestId).click();
+      await page.getByRole('option', { name: optionName, exact: true }).click();
+    };
+
+    await page.getByTestId('nav-investing').click();
+    await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
+
+    await selectOption('investing-holding-currency', 'GBP');
+    await page.getByTestId('investing-account-name').fill(gbpAccount);
+    await selectOption('investing-account-type', 'Brokerage');
+    const gbpAccountPromise = page.waitForResponse(
+      (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST',
+    );
+    await page.getByTestId('investing-account-create').click();
+    const gbpAccountResponse = await gbpAccountPromise;
+    expect(gbpAccountResponse.ok()).toBeTruthy();
+
+    await selectOption('investing-holding-currency', 'USD');
+    await page.getByTestId('investing-account-name').fill(usdAccount);
+    await selectOption('investing-account-type', 'Brokerage');
+    const usdAccountPromise = page.waitForResponse(
+      (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST',
+    );
+    await page.getByTestId('investing-account-create').click();
+    const usdAccountResponse = await usdAccountPromise;
+    expect(usdAccountResponse.ok()).toBeTruthy();
+
+    await page.getByTestId('investing-holding-symbol').fill('VWRD');
+    await selectOption('investing-holding-account', gbpAccount);
+    await page.getByTestId('investing-holding-quantity').fill('10');
+    await page.getByTestId('investing-holding-avg-cost').fill('100');
+    await selectOption('investing-holding-currency', 'GBP');
+    await page.getByTestId('investing-holding-submit').click();
+    await expect(page.getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
+
+    await page.getByTestId('investing-holding-symbol').fill('AAPL');
+    await selectOption('investing-holding-account', usdAccount);
+    await page.getByTestId('investing-holding-quantity').fill('5');
+    await page.getByTestId('investing-holding-avg-cost').fill('150');
+    await selectOption('investing-holding-currency', 'USD');
+    await page.getByTestId('investing-holding-submit').click();
+    await expect(page.getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
+
+    await expect(page.getByTestId('investing-portfolio-value')).toContainText('N/A');
+    await expect(page.getByTestId('investing-reporting-currency')).toContainText('Not configured');
+    await expect(page.getByText('Multiple currencies detected')).toBeVisible();
+    await expect(page.getByText('£1,000.00').first()).toBeVisible();
+    await expect(page.getByText('$750.00').first()).toBeVisible();
+    await expect(page.getByTestId('investing-fx-rates-used')).toHaveCount(0);
   });
 });
