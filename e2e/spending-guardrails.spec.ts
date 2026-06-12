@@ -121,4 +121,58 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
       )
       .toBeGreaterThan(0);
   });
+
+  test('should create an account and show it on the linked transaction row', async ({ page }) => {
+    const selectFromCombobox = async (trigger: Locator, optionName: string) => {
+      await trigger.click();
+      await page.getByRole('option', { name: optionName, exact: true }).click();
+    };
+    const accountName = `Trip Wallet ${testUsername.slice(-8)}`;
+    const description = `Account-linked spend ${testUsername.slice(-8)}`;
+
+    await page.getByTestId('nav-settings').click();
+    await expect(page.getByRole('heading', { name: 'Master Configuration' })).toBeVisible();
+    const accountsSection = page.getByTestId('master-accounts-section');
+    await page.getByTestId('master-account-name').fill(accountName);
+    await page.getByTestId('master-account-currency').click();
+    await page.getByRole('option', { name: /^USD\b/ }).click();
+    const accountPromise = page.waitForResponse(
+      (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST'
+    );
+    await page.getByTestId('master-account-create').click();
+    const accountResponse = await accountPromise;
+    expect(accountResponse.ok()).toBeTruthy();
+    const account = (await accountResponse.json()) as { public_id: string; name: string };
+    expect(account.name).toBe(accountName);
+    await expect(accountsSection.locator(`text=${accountName}`)).toBeVisible();
+
+    await page.getByTestId('nav-spending').click();
+    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
+
+    await page.getByTestId('spending-open-new-transaction').click();
+    await page.getByTestId('spending-transaction-amount').fill('42.25');
+    await selectFromCombobox(page.getByTestId('spending-transaction-category'), 'Other');
+    await selectFromCombobox(page.getByTestId('spending-transaction-account'), `${accountName} (wallet)`);
+
+    await page.getByTestId('spending-transaction-description').fill(description);
+    const transactionPromise = page.waitForResponse(
+      (res) => res.url().includes('/v1/spending/transactions') && res.request().method() === 'POST'
+    );
+    await page.getByTestId('spending-transaction-save').click();
+    const transactionResponse = await transactionPromise;
+    expect(transactionResponse.ok()).toBeTruthy();
+    const transaction = (await transactionResponse.json()) as {
+      account_id: string | null;
+      description: string;
+    };
+    expect(transaction.account_id).toBe(account.public_id);
+    expect(transaction.description).toBe(description);
+
+    await page.getByTestId('spending-tab-transactions').click();
+    const row = page.locator('tbody tr').filter({ hasText: description });
+    await expect(row).toBeVisible();
+    await expect(row).toContainText(accountName);
+    await expect(row).toContainText('wallet');
+    await expect(row).toContainText('USD');
+  });
 });

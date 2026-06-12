@@ -94,4 +94,48 @@ test.describe('Data Export Module E2E Flow', () => {
     // Verify it is a valid zip (zip header signature is 50 4B 03 04 -> PK..)
     expect(buffer.slice(0, 4).toString('hex')).toBe('504b0304');
   });
+
+  test('should create, download, and delete an export from the UI', async ({ page }) => {
+    await page.click('a[href="/exports"]');
+    await expect(page.getByRole('heading', { name: 'Data Exports' })).toBeVisible();
+
+    const createResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes('/v1/exports') &&
+        response.request().method() === 'POST' &&
+        response.status() === 201,
+    );
+    await page.getByTestId('exports-create').click();
+
+    const createResponse = await createResponsePromise;
+    const exportRecord = (await createResponse.json()) as { public_id: string; status: string };
+    expect(exportRecord.public_id).toBeTruthy();
+    expect(exportRecord.status).toBe('ready');
+
+    await expect(page.getByTestId('exports-status')).toHaveText('ready', { timeout: 10000 });
+    await expect(page.getByTestId('exports-download')).toBeEnabled();
+
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByTestId('exports-download').click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toContain('lifestack-export');
+
+    const deleteResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes(`/v1/exports/${exportRecord.public_id}`) &&
+        response.request().method() === 'DELETE' &&
+        response.status() === 204,
+    );
+    await page.getByTestId('exports-delete').click();
+    await deleteResponsePromise;
+
+    await expect(
+      page.getByText('Create an export to see its status, download link, and delete control here.'),
+    ).toBeVisible({ timeout: 10000 });
+
+    const deletedDownload = await page
+      .context()
+      .request.get(`${apiBaseUrl}/v1/exports/${exportRecord.public_id}/download`);
+    expect(deletedDownload.status()).toBe(404);
+  });
 });
