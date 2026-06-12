@@ -40,6 +40,7 @@ function currentUtcWeekStart(): string {
 async function csrfHeaders(request: APIRequestContext) {
   const state = await request.storageState();
   const csrfCookie = state.cookies.find((cookie) => cookie.name === 'csrf_token');
+  expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
   const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
 
   return {

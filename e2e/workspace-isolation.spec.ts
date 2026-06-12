@@ -29,6 +29,7 @@ const makeCredentials = (label: string): Credentials => {
 async function csrfHeaders(request: APIRequestContext) {
   const state = await request.storageState();
   const csrfCookie = state.cookies.find((cookie) => cookie.name === 'csrf_token');
+  expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
   const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
 
   return {
@@ -365,13 +366,14 @@ test.describe('Workspace isolation E2E Flow', () => {
     await expect(page.getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
     await expect(page.getByTestId('investing-holding-symbol-MSFT')).toHaveCount(0);
 
-    const sharedSelectResponse = page.waitForResponse(
+    const sharedSelectResponsePromise = page.waitForResponse(
       (response) =>
         response.url().includes(`/v1/platform/workspaces/${sharedWorkspace!.public_id}/select`) &&
         response.request().method() === 'POST',
     );
     await page.getByTestId('header-workspace-select').selectOption(sharedWorkspace!.public_id);
-    await sharedSelectResponse;
+    const sharedSelectResponse = await sharedSelectResponsePromise;
+    expect(sharedSelectResponse.ok()).toBeTruthy();
     await expect(page.getByTestId('header-workspace-select')).toHaveValue(
       sharedWorkspace!.public_id,
     );

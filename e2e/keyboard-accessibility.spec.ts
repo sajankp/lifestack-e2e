@@ -45,11 +45,11 @@ test.describe('Keyboard accessibility E2E Flow', () => {
     const createPromise = page.waitForResponse(
       (response) =>
         response.url().includes('/v1/todo/') &&
-        response.request().method() === 'POST' &&
-        response.status() === 201,
+        response.request().method() === 'POST',
     );
     await page.keyboard.press('Enter');
     const createResponse = await createPromise;
+    expect(createResponse.status()).toBe(201);
     const todo = (await createResponse.json()) as { public_id: string };
 
     await expect(page.getByText(todoTitle)).toBeVisible();
@@ -59,11 +59,11 @@ test.describe('Keyboard accessibility E2E Flow', () => {
     const completePromise = page.waitForResponse(
       (response) =>
         response.url().includes(`/v1/todo/${todo.public_id}`) &&
-        response.request().method() === 'PATCH' &&
-        response.ok(),
+        response.request().method() === 'PATCH',
     );
     await page.keyboard.press('Space');
-    await completePromise;
+    const completeResponse = await completePromise;
+    expect(completeResponse.ok()).toBeTruthy();
 
     await expect(page.getByTestId(toggleTestId)).toHaveAttribute(
       'aria-label',
@@ -101,11 +101,11 @@ test.describe('Keyboard accessibility E2E Flow', () => {
     const createCategoryPromise = page.waitForResponse(
       (response) =>
         response.url().includes('/v1/spending/categories') &&
-        response.request().method() === 'POST' &&
-        response.status() === 201,
+        response.request().method() === 'POST',
     );
     await page.keyboard.press('Enter');
-    await createCategoryPromise;
+    const createCategoryResponse = await createCategoryPromise;
+    expect(createCategoryResponse.status()).toBe(201);
 
     await expect(page.getByRole('heading', { name: 'Manage Categories' })).toHaveCount(0);
 

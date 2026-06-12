@@ -11,6 +11,8 @@
     "test": "npm run test:full",
     "test:smoke": "npm run precheck && playwright test --grep @smoke",
     "test:full": "npm run precheck && playwright test",
+    "test:local": "PLAYWRIGHT_BASE_URL=http://localhost:5174 PLAYWRIGHT_API_URL=http://localhost:8001 E2E_DATABASE_URL=postgresql+asyncpg://lifestack_e2e:lifestack_e2e@localhost:5433/lifestack_e2e npm run test:full",
+    "test:local:smoke": "PLAYWRIGHT_BASE_URL=http://localhost:5174 PLAYWRIGHT_API_URL=http://localhost:8001 E2E_DATABASE_URL=postgresql+asyncpg://lifestack_e2e:lifestack_e2e@localhost:5433/lifestack_e2e npm run test:smoke",
     "test:smoke:stack": "node ./scripts/run-stack-tests.mjs smoke",
     "test:full:stack": "node ./scripts/run-stack-tests.mjs full"
   },
