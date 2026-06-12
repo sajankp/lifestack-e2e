@@ -18,8 +18,8 @@ function makeCredentials(role: string) {
   };
 }
 
-async function getHeaders(request: import('@playwright/test').APIRequestContext) {
-  const state = await request.storageState();
+async function getHeaders(context: import('@playwright/test').BrowserContext) {
+  const state = await context.storageState();
   const csrfCookie = state.cookies.find((c) => c.name === 'csrf_token');
   expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
   const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
@@ -85,7 +85,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
 
     await loginViaApi(page.request, ownerCreds.email, ownerCreds.password);
     const inviteRes = await page.request.post(`${API_BASE}/platform/workspaces/${workspaceId}/members`, {
-      headers: await getHeaders(page.request),
+      headers: await getHeaders(page.context()),
       data: { user_public_id: viewerPublicId, role: 'viewer' },
     });
     expect([200, 201]).toContain(inviteRes.status());
@@ -93,7 +93,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     // 2. Login as viewer and select shared workspace
     await loginViaApi(page.request, viewerCreds.email, viewerCreds.password);
     const selectRes = await page.request.post(`${API_BASE}/platform/workspaces/${workspaceId}/select`, {
-      headers: await getHeaders(page.request),
+      headers: await getHeaders(page.context()),
     });
     expect([200, 204]).toContain(selectRes.status());
 

@@ -12,8 +12,8 @@ type Account = {
   default_currency_code: string;
 };
 
-async function csrfHeaders(request: APIRequestContext) {
-  const state = await request.storageState();
+async function csrfHeaders(page: Page) {
+  const state = await page.context().storageState();
   const csrfCookie = state.cookies.find((cookie) => cookie.name === 'csrf_token');
   expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
   const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
@@ -26,13 +26,13 @@ async function csrfHeaders(request: APIRequestContext) {
 }
 
 async function createAccount(
-  request: APIRequestContext,
+  page: Page,
   name: string,
   currencyCode: string,
   accountType: 'bank' | 'wallet' = 'bank',
 ): Promise<Account> {
-  const response = await request.post(`${API_BASE}/finance/accounts`, {
-    headers: await csrfHeaders(request),
+  const response = await page.request.post(`${API_BASE}/finance/accounts`, {
+    headers: await csrfHeaders(page),
     data: {
       name,
       account_type: accountType,
@@ -128,9 +128,9 @@ test.describe('Transfer Flow E2E', () => {
     });
 
     // Re-create accounts after authentication so they belong to this fresh workspace.
-    const authedUsdSource = await createAccount(page.request, usdSourceName, 'USD');
-    const authedUsdTarget = await createAccount(page.request, usdTargetName, 'USD', 'wallet');
-    const authedGbpTarget = await createAccount(page.request, gbpTargetName, 'GBP');
+    const authedUsdSource = await createAccount(page, usdSourceName, 'USD');
+    const authedUsdTarget = await createAccount(page, usdTargetName, 'USD', 'wallet');
+    const authedGbpTarget = await createAccount(page, gbpTargetName, 'GBP');
 
     await page.getByTestId('nav-spending').click();
     await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
@@ -162,7 +162,7 @@ test.describe('Transfer Flow E2E', () => {
     ]);
 
     const invalidTransfer = await page.request.post(`${API_BASE}/finance/transfers`, {
-      headers: await csrfHeaders(page.request),
+      headers: await csrfHeaders(page),
       data: {
         from_module: 'spending',
         to_module: 'spending',

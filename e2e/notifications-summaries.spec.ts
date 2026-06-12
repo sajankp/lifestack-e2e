@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { test, expect, type APIRequestContext } from '@playwright/test';
+import { test, expect, type APIRequestContext, type BrowserContext } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 import { triggerWeeklySummary } from './helpers/e2e-hooks';
 
@@ -37,8 +37,8 @@ function currentUtcWeekStart(): string {
   return monday.toISOString().slice(0, 10);
 }
 
-async function csrfHeaders(request: APIRequestContext) {
-  const state = await request.storageState();
+async function csrfHeaders(source: BrowserContext | APIRequestContext) {
+  const state = await source.storageState();
   const csrfCookie = state.cookies.find((cookie) => cookie.name === 'csrf_token');
   expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
   const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';

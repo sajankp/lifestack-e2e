@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { test, expect, type APIRequestContext } from '@playwright/test';
+import { test, expect, type APIRequestContext, type BrowserContext } from '@playwright/test';
 
 const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
 const API_BASE = PLAYWRIGHT_API_URL.endsWith('/v1') ? PLAYWRIGHT_API_URL : `${PLAYWRIGHT_API_URL}/v1`;
@@ -26,8 +26,8 @@ const makeCredentials = (label: string): Credentials => {
   };
 };
 
-async function csrfHeaders(request: APIRequestContext) {
-  const state = await request.storageState();
+async function csrfHeaders(source: BrowserContext | APIRequestContext) {
+  const state = await source.storageState();
   const csrfCookie = state.cookies.find((cookie) => cookie.name === 'csrf_token');
   expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
   const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
@@ -202,16 +202,16 @@ async function createImportBatch(
   csvContent: string,
 ): Promise<string> {
   await selectWorkspace(request, workspaceId);
-  const boundary = '----PlaywrightBoundary';
-  const payload = `--${boundary}\r\nContent-Disposition: form-data; name="module"\r\n\r\n${moduleName}\r\n` +
-    `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="import.csv"\r\nContent-Type: text/csv\r\n\r\n${csvContent}\r\n` +
-    `--${boundary}--`;
   const response = await request.post(`${API_BASE}/imports`, {
-    headers: {
-      ...(await csrfHeaders(request)),
-      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+    headers: await csrfHeaders(request),
+    multipart: {
+      module: moduleName,
+      file: {
+        name: 'import.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from(csvContent, 'utf8'),
+      },
     },
-    data: Buffer.from(payload),
   });
   expect(response.status()).toBe(200);
   const body = (await response.json()) as { import_batch: { public_id: string } };

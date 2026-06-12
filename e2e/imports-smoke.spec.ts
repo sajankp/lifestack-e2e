@@ -26,7 +26,7 @@ test.describe('Imports Smoke Flow', () => {
 
   test('should validate and commit a spending import @smoke', async ({ page, baseURL }) => {
     const context = page.context();
-    const origin = baseURL || 'http://localhost:5173';
+    const origin = baseURL || 'http://localhost:5174';
 
     const categoriesResponse = await context.request.get(`${apiBaseUrl}/v1/spending/categories`, {
       headers: {
@@ -76,7 +76,7 @@ test.describe('Imports Smoke Flow', () => {
 
   test('should roll back a completed spending import from the UI', async ({ page, baseURL }) => {
     const context = page.context();
-    const origin = baseURL || 'http://localhost:5173';
+    const origin = baseURL || 'http://localhost:5174';
 
     const categoriesResponse = await context.request.get(`${apiBaseUrl}/v1/spending/categories`, {
       headers: {

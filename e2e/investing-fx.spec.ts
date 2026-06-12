@@ -125,7 +125,8 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
       (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST',
     );
     await page.getByTestId('investing-account-create').click();
-    await expect((await gbpAccountPromise).ok()).toBeTruthy();
+    const gbpAccountResponse = await gbpAccountPromise;
+    expect(gbpAccountResponse.ok()).toBeTruthy();
 
     await selectOption('investing-holding-currency', 'USD');
     await page.getByTestId('investing-account-name').fill(usdAccount);
@@ -134,7 +135,8 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
       (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST',
     );
     await page.getByTestId('investing-account-create').click();
-    await expect((await usdAccountPromise).ok()).toBeTruthy();
+    const usdAccountResponse = await usdAccountPromise;
+    expect(usdAccountResponse.ok()).toBeTruthy();
 
     await page.getByTestId('investing-holding-symbol').fill('VWRD');
     await selectOption('investing-holding-account', gbpAccount);
