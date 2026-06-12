@@ -102,12 +102,12 @@ test.describe('Data Export Module E2E Flow', () => {
     const createResponsePromise = page.waitForResponse(
       (response) =>
         response.url().includes('/v1/exports') &&
-        response.request().method() === 'POST' &&
-        response.status() === 201,
+        response.request().method() === 'POST',
     );
     await page.getByTestId('exports-create').click();
 
     const createResponse = await createResponsePromise;
+    expect(createResponse.status()).toBe(201);
     const exportRecord = (await createResponse.json()) as { public_id: string; status: string };
     expect(exportRecord.public_id).toBeTruthy();
     expect(exportRecord.status).toBe('ready');
@@ -123,11 +123,11 @@ test.describe('Data Export Module E2E Flow', () => {
     const deleteResponsePromise = page.waitForResponse(
       (response) =>
         response.url().includes(`/v1/exports/${exportRecord.public_id}`) &&
-        response.request().method() === 'DELETE' &&
-        response.status() === 204,
+        response.request().method() === 'DELETE',
     );
     await page.getByTestId('exports-delete').click();
-    await deleteResponsePromise;
+    const deleteResponse = await deleteResponsePromise;
+    expect(deleteResponse.status()).toBe(204);
 
     await expect(
       page.getByText('Create an export to see its status, download link, and delete control here.'),

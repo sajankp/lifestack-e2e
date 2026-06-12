@@ -21,6 +21,7 @@ function makeCredentials(role: string) {
 async function getHeaders(request: import('@playwright/test').APIRequestContext) {
   const state = await request.storageState();
   const csrfCookie = state.cookies.find((c) => c.name === 'csrf_token');
+  expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
   const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
   return {
     'Origin': origin,
