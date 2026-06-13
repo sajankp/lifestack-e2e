@@ -25,9 +25,10 @@ test.describe('Guided Empty States E2E Flow', () => {
     await page.getByTestId('nav-todo').click();
     await expect(page.getByRole('heading', { name: 'Todos' })).toBeVisible();
     await expect(page.getByText('No tasks yet.')).toBeVisible();
-    await expect(page.getByText('No recurring rules yet.')).toBeVisible();
-    await expect(page.getByTestId('todo-new-title')).toBeVisible();
-    await expect(page.getByTestId('todo-new-submit')).toBeDisabled();
+    await page.getByTestId('todo-tab-recurring').click();
+    await expect(page.getByText('No recurring todos yet.')).toBeVisible();
+    await page.getByTestId('todo-tab-tasks').click();
+    await expect(page.getByRole('button', { name: 'Add Task' })).toBeVisible();
 
     await page.getByTestId('nav-spending').click();
     await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
@@ -44,7 +45,7 @@ test.describe('Guided Empty States E2E Flow', () => {
     await page.getByTestId('nav-investing').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
     await expect(page.getByText('No holdings yet.')).toBeVisible();
-    await expect(page.getByTestId('investing-account-name')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add Holding' })).toBeVisible();
     await page.getByTestId('investing-tab-cash').click();
     await expect(page.getByText('No cash balances yet.')).toBeVisible();
 
@@ -52,14 +53,14 @@ test.describe('Guided Empty States E2E Flow', () => {
     await expect(page.getByRole('heading', { name: 'Bulk Imports' })).toBeVisible();
     await expect(page.getByText('No import batches yet.')).toBeVisible();
     await expect(page.getByText('Select an import to inspect validation and commit state.')).toBeVisible();
-    await expect(page.getByTestId('imports-upload-validate')).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'New Import' })).toBeVisible();
 
     await page.getByTestId('nav-exports').click();
     await expect(page.getByRole('heading', { name: 'Data Exports' })).toBeVisible();
     await expect(
       page.getByText('Create an export to see its status, download link, and delete control here.'),
     ).toBeVisible();
-    await expect(page.getByTestId('exports-create')).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Create Export' })).toBeVisible();
 
     await page.getByTestId('header-notifications').click();
     await expect(page.getByRole('heading', { name: 'Notifications', exact: true })).toBeVisible();
