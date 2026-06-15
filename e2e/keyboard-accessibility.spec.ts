@@ -38,8 +38,7 @@ test.describe('Keyboard accessibility E2E Flow', () => {
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: 'Todos' })).toBeVisible();
 
-    // Focus and press Enter on the "Add Task" button to open the modal
-    await page.getByRole('button', { name: 'Add Task' }).focus();
+    await tabUntilTestId(page, 'todo-add-task');
     await page.keyboard.press('Enter');
     await expect(page.getByTestId('todo-new-title')).toBeVisible();
 
