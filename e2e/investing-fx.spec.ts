@@ -38,13 +38,23 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     await selectOption('investing-holding-currency', 'GBP');
     await page.getByTestId('investing-account-name').fill(gbpAccount);
     await selectOption('investing-account-type', 'Brokerage');
+    const gbpAccountPromise = page.waitForResponse(
+      (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST',
+    );
     await page.getByTestId('investing-account-create').click();
+    const gbpAccountResponse = await gbpAccountPromise;
+    expect(gbpAccountResponse.ok()).toBeTruthy();
 
     // 4. Create USD Account (still in the modal)
     await selectOption('investing-holding-currency', 'USD');
     await page.getByTestId('investing-account-name').fill(usdAccount);
     await selectOption('investing-account-type', 'Brokerage');
+    const usdAccountPromise = page.waitForResponse(
+      (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST',
+    );
     await page.getByTestId('investing-account-create').click();
+    const usdAccountResponse = await usdAccountPromise;
+    expect(usdAccountResponse.ok()).toBeTruthy();
 
     // 5. Add a GBP holding (e.g. VWRD, 10 units, avg cost 100 GBP)
     await page.getByTestId('investing-holding-symbol').fill('VWRD');
