@@ -99,6 +99,9 @@ test.describe('Data Export Module E2E Flow', () => {
     await page.click('a[href="/exports"]');
     await expect(page.getByRole('heading', { name: 'Data Exports' })).toBeVisible();
 
+    // Open Modal
+    await page.getByRole('button', { name: 'Create Export' }).click();
+
     const createResponsePromise = page.waitForResponse(
       (response) =>
         response.url().includes('/v1/exports') &&

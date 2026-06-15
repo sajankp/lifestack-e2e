@@ -38,6 +38,10 @@ test.describe('Keyboard accessibility E2E Flow', () => {
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: 'Todos' })).toBeVisible();
 
+    await tabUntilTestId(page, 'todo-add-task');
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('todo-new-title')).toBeVisible();
+
     await tabUntilTestId(page, 'todo-new-title');
     await page.keyboard.insertText(todoTitle);
     await tabUntilTestId(page, 'todo-new-submit');

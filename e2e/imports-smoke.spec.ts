@@ -59,6 +59,9 @@ test.describe('Imports Smoke Flow', () => {
       await page.click('a[href="/imports"]');
       await expect(page.getByRole('heading', { name: 'Bulk Imports' })).toBeVisible();
 
+      // Open Modal
+      await page.getByRole('button', { name: 'New Import' }).click();
+
       await page.getByTestId('imports-module-select').selectOption('spending-transactions');
       await page.getByTestId('imports-file-input').setInputFiles(csvPath);
       await page.getByTestId('imports-upload-validate').click();
@@ -107,6 +110,9 @@ test.describe('Imports Smoke Flow', () => {
 
       await page.click('a[href="/imports"]');
       await expect(page.getByRole('heading', { name: 'Bulk Imports' })).toBeVisible();
+
+      // Open Modal
+      await page.getByRole('button', { name: 'New Import' }).click();
 
       await page.getByTestId('imports-module-select').selectOption('spending-transactions');
       await page.getByTestId('imports-file-input').setInputFiles(csvPath);
