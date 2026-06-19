@@ -174,5 +174,17 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     await expect(row).toContainText(accountName);
     await expect(row).toContainText('wallet');
     await expect(row).toContainText('USD');
+
+    const filteredRequest = page.waitForResponse((res) => {
+      const url = new URL(res.url());
+      return (
+        url.pathname.endsWith('/v1/spending/transactions') &&
+        url.searchParams.get('account_id') === account.public_id &&
+        res.request().method() === 'GET'
+      );
+    });
+    await selectFromCombobox(page.getByTestId('spending-account-filter'), `${accountName} (wallet)`);
+    expect((await filteredRequest).ok()).toBeTruthy();
+    await expect(row).toBeVisible();
   });
 });
