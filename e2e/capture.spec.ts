@@ -106,7 +106,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await expect(page.getByText('Session closed (1006).')).toBeVisible({ timeout: 10000 });
   });
 
-  test('MEMBER gets provider unavailable alert when API key is missing', async ({ page }) => {
+  test('MEMBER can connect to the voice agent session', async ({ page }) => {
     const memberCreds = makeCredentials('member');
     await registerViaApi(page.request, memberCreds);
 
@@ -114,9 +114,9 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await expect(page.locator('#voice-agent-trigger')).toBeVisible();
     await page.locator('#voice-agent-trigger').click();
 
-    // The backend connects, but closes with code 4002 because VITE_GEMINI_API_KEY is not set
-    await expect(page.getByText('Voice session needs attention')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Voice capture is temporarily unavailable. Please try again.')).toBeVisible();
+    await expect(page.getByText('Connected. Tap the microphone to talk.')).toBeVisible({
+      timeout: 10000,
+    });
   });
 
   test('MEMBER can submit text and trigger mock success events', async ({ page }) => {
