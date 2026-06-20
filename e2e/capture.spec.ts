@@ -43,6 +43,7 @@ async function loginViaApi(
       data: params.toString(),
     });
     if (lastRes.status() === 200) {
+      await new Promise((resolve) => setTimeout(resolve, 150));
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, 150));
