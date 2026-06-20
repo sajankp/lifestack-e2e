@@ -14,6 +14,18 @@ const TRANSIENT_RETRY_DELAY_MS = 1_500;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+async function navigate(page: Page, path: string): Promise<void> {
+  for (let attempt = 0; attempt < MAX_AUTH_ATTEMPTS; attempt += 1) {
+    try {
+      await page.goto(path, { waitUntil: 'domcontentloaded', timeout: 15_000 });
+      return;
+    } catch (error) {
+      if (attempt === MAX_AUTH_ATTEMPTS - 1) throw error;
+      await delay(TRANSIENT_RETRY_DELAY_MS);
+    }
+  }
+}
+
 export async function registerAndLogin(
   page: Page,
   baseURL: string | undefined,
@@ -25,7 +37,7 @@ export async function registerAndLogin(
 
 async function registerWithBackoff(page: Page, credentials: AuthCredentials): Promise<void> {
   for (let attempt = 0; attempt < MAX_AUTH_ATTEMPTS; attempt += 1) {
-    await page.goto('/register');
+    await navigate(page, '/register');
     await page.fill('input[placeholder="Email address"]', credentials.email);
     await page.fill('input[placeholder="Username"]', credentials.username);
     await page.fill('input[placeholder="Password"]', credentials.password);
@@ -60,7 +72,7 @@ async function loginWithBackoff(
   const resolvedBaseURL = baseURL || 'http://localhost:5174';
 
   for (let attempt = 0; attempt < MAX_AUTH_ATTEMPTS; attempt += 1) {
-    await page.goto('/login');
+    await navigate(page, '/login');
     await page.fill('input[placeholder="Email address"]', credentials.email);
     await page.fill('input[placeholder="Password"]', credentials.password);
     await page.click('button[type="submit"]');

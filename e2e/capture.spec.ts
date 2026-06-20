@@ -107,7 +107,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     expect([200, 204]).toContain(selectRes.status());
 
     // 3. Open App and launch widget
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#voice-agent-trigger')).toBeVisible();
     await page.locator('#voice-agent-trigger').click();
 
@@ -119,7 +119,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     const memberCreds = makeCredentials('member');
     await registerViaApi(page.request, memberCreds);
 
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#voice-agent-trigger')).toBeVisible();
     await page.locator('#voice-agent-trigger').click();
 
@@ -224,7 +224,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
       window.WebSocket = MockWebSocket as any;
     });
 
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.locator('#voice-agent-trigger').click();
 
     // Verify widget opened and mocked connection is established
@@ -315,7 +315,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
       window.WebSocket = MockWebSocket as any;
     });
 
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.locator('#voice-agent-trigger').click();
 
     // Verify custom error message is rendered in the messages panel

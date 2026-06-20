@@ -115,9 +115,20 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     // Total Portfolio Value in USD = 1250 + 750 = 2000 USD.
     // Let's verify that the total portfolio value shows $2,000.00
     await expect(page.getByTestId('investing-portfolio-value')).toContainText('$2,000.00');
+    await expect(page.getByTestId('investing-invested-value')).toContainText('$2,000.00');
+    await expect(page.getByTestId('investing-total-gain-loss')).toContainText('$0.00');
+    await expect(page.getByTestId('investing-daily-change')).toContainText('N/A');
     await expect(page.getByTestId('investing-fx-rates-used')).toContainText('1 GBP');
     await expect(page.getByTestId('investing-fx-rates-used')).toContainText('1.2500');
     await expect(page.getByTestId('investing-fx-rates-used')).toContainText('USD');
+
+    // Dashboard uses the same canonical performance snapshot as Investing.
+    const investingPortfolioValue = await page.getByTestId('investing-portfolio-value').innerText();
+    await page.getByTestId('nav-dashboard').click();
+    await expect(page.getByTestId('dashboard-portfolio-value')).toHaveText(investingPortfolioValue);
+    await expect(page.getByText(/Invested \$2,000\.00 · Gain \$0\.00/)).toBeVisible();
+
+    await page.getByTestId('nav-investing').click();
 
     // 10. Navigate to Look-through Analytics tab
     await page.getByTestId('investing-tab-analytics').click();
