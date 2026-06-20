@@ -1,5 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
+
+const selectOption = async (page: Page, triggerTestId: string, optionName: string) => {
+  await page.getByTestId(triggerTestId).click();
+  await page.getByRole('option', { name: optionName, exact: true }).click();
+};
 
 test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
   let testEmail: string;
@@ -23,11 +28,6 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
   });
 
   test('should create multi-currency accounts and holdings, and verify FX look-through valuation', async ({ page, baseURL }) => {
-    const selectOption = async (triggerTestId: string, optionName: string) => {
-      await page.getByTestId(triggerTestId).click();
-      await page.getByRole('option', { name: optionName, exact: true }).click();
-    };
-
     // 2. Navigate to Investing tab
     await page.getByTestId('nav-investing').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
@@ -35,9 +35,9 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     // 3. Create GBP Account via the Add Holding modal (quick-create account sub-form)
     // Open the modal, set holding currency so quick-created account inherits it.
     await page.getByTestId('investing-add-holding-btn').click();
-    await selectOption('investing-holding-currency', 'GBP');
+    await selectOption(page, 'investing-holding-currency', 'GBP');
     await page.getByTestId('investing-account-name').fill(gbpAccount);
-    await selectOption('investing-account-type', 'Brokerage');
+    await selectOption(page, 'investing-account-type', 'Brokerage');
     const gbpAccountPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST',
     );
@@ -46,9 +46,9 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     expect(gbpAccountResponse.ok()).toBeTruthy();
 
     // 4. Create USD Account (still in the modal)
-    await selectOption('investing-holding-currency', 'USD');
+    await selectOption(page, 'investing-holding-currency', 'USD');
     await page.getByTestId('investing-account-name').fill(usdAccount);
-    await selectOption('investing-account-type', 'Brokerage');
+    await selectOption(page, 'investing-account-type', 'Brokerage');
     const usdAccountPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST',
     );
@@ -58,10 +58,10 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
 
     // 5. Add a GBP holding (e.g. VWRD, 10 units, avg cost 100 GBP)
     await page.getByTestId('investing-holding-symbol').fill('VWRD');
-    await selectOption('investing-holding-account', gbpAccount);
+    await selectOption(page, 'investing-holding-account', gbpAccount);
     await page.getByTestId('investing-holding-quantity').fill('10');
     await page.getByTestId('investing-holding-avg-cost').fill('100');
-    await selectOption('investing-holding-currency', 'GBP');
+    await selectOption(page, 'investing-holding-currency', 'GBP');
     await page.getByTestId('investing-holding-submit').click();
 
     // Verify GBP holding added (modal closes on success)
@@ -70,20 +70,20 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     // 6. Add a USD holding (e.g. AAPL, 5 units, avg cost 150 USD)
     await page.getByTestId('investing-add-holding-btn').click();
     await page.getByTestId('investing-holding-symbol').fill('AAPL');
-    await selectOption('investing-holding-account', usdAccount);
+    await selectOption(page, 'investing-holding-account', usdAccount);
     await page.getByTestId('investing-holding-quantity').fill('5');
     await page.getByTestId('investing-holding-avg-cost').fill('150');
-    await selectOption('investing-holding-currency', 'USD');
+    await selectOption(page, 'investing-holding-currency', 'USD');
     await page.getByTestId('investing-holding-submit').click();
 
     // Verify USD holding added
     await expect(page.getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
 
     // 7. Filter holdings by account and verify only the matching account remains.
-    await selectOption('investing-holdings-account-filter', gbpAccount);
+    await selectOption(page, 'investing-holdings-account-filter', gbpAccount);
     await expect(page.getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
     await expect(page.getByTestId('investing-holding-symbol-AAPL')).toHaveCount(0);
-    await selectOption('investing-holdings-account-filter', 'All accounts');
+    await selectOption(page, 'investing-holdings-account-filter', 'All accounts');
     await expect(page.getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
 
     // 8. Configure reporting currency to USD via API request sharing session cookies
@@ -140,16 +140,11 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
   });
 
   test('should filter holdings by account', async ({ page }) => {
-    const selectOption = async (triggerTestId: string, optionName: string) => {
-      await page.getByTestId(triggerTestId).click();
-      await page.getByRole('option', { name: optionName, exact: true }).click();
-    };
-
     await page.getByTestId('nav-investing').click();
     await page.getByTestId('investing-add-holding-btn').click();
 
     await page.getByTestId('investing-account-name').fill(gbpAccount);
-    await selectOption('investing-account-type', 'Brokerage');
+    await selectOption(page, 'investing-account-type', 'Brokerage');
     const gbpAccountPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST',
     );
@@ -157,7 +152,7 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     expect((await gbpAccountPromise).ok()).toBeTruthy();
 
     await page.getByTestId('investing-account-name').fill(usdAccount);
-    await selectOption('investing-account-type', 'Brokerage');
+    await selectOption(page, 'investing-account-type', 'Brokerage');
     const usdAccountPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST',
     );
@@ -165,40 +160,35 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     expect((await usdAccountPromise).ok()).toBeTruthy();
 
     await page.getByTestId('investing-holding-symbol').fill('VWRD');
-    await selectOption('investing-holding-account', gbpAccount);
+    await selectOption(page, 'investing-holding-account', gbpAccount);
     await page.getByTestId('investing-holding-quantity').fill('10');
     await page.getByTestId('investing-holding-avg-cost').fill('100');
     await page.getByTestId('investing-holding-submit').click();
 
     await page.getByTestId('investing-add-holding-btn').click();
     await page.getByTestId('investing-holding-symbol').fill('AAPL');
-    await selectOption('investing-holding-account', usdAccount);
+    await selectOption(page, 'investing-holding-account', usdAccount);
     await page.getByTestId('investing-holding-quantity').fill('5');
     await page.getByTestId('investing-holding-avg-cost').fill('150');
     await page.getByTestId('investing-holding-submit').click();
 
-    await selectOption('investing-holdings-account-filter', gbpAccount);
+    await selectOption(page, 'investing-holdings-account-filter', gbpAccount);
     await expect(page.getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
     await expect(page.getByTestId('investing-holding-symbol-AAPL')).toHaveCount(0);
 
-    await selectOption('investing-holdings-account-filter', 'All accounts');
+    await selectOption(page, 'investing-holdings-account-filter', 'All accounts');
     await expect(page.getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
   });
 
   test('should show unconverted multi-currency state before reporting currency is configured', async ({ page }) => {
-    const selectOption = async (triggerTestId: string, optionName: string) => {
-      await page.getByTestId(triggerTestId).click();
-      await page.getByRole('option', { name: optionName, exact: true }).click();
-    };
-
     await page.getByTestId('nav-investing').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
 
     // Open modal and create GBP account via quick-create sub-form
     await page.getByTestId('investing-add-holding-btn').click();
-    await selectOption('investing-holding-currency', 'GBP');
+    await selectOption(page, 'investing-holding-currency', 'GBP');
     await page.getByTestId('investing-account-name').fill(gbpAccount);
-    await selectOption('investing-account-type', 'Brokerage');
+    await selectOption(page, 'investing-account-type', 'Brokerage');
     const gbpAccountPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST',
     );
@@ -207,9 +197,9 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     expect(gbpAccountResponse.ok()).toBeTruthy();
 
     // Create USD account (still in the same modal)
-    await selectOption('investing-holding-currency', 'USD');
+    await selectOption(page, 'investing-holding-currency', 'USD');
     await page.getByTestId('investing-account-name').fill(usdAccount);
-    await selectOption('investing-account-type', 'Brokerage');
+    await selectOption(page, 'investing-account-type', 'Brokerage');
     const usdAccountPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST',
     );
@@ -219,20 +209,20 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
 
     // Add GBP holding
     await page.getByTestId('investing-holding-symbol').fill('VWRD');
-    await selectOption('investing-holding-account', gbpAccount);
+    await selectOption(page, 'investing-holding-account', gbpAccount);
     await page.getByTestId('investing-holding-quantity').fill('10');
     await page.getByTestId('investing-holding-avg-cost').fill('100');
-    await selectOption('investing-holding-currency', 'GBP');
+    await selectOption(page, 'investing-holding-currency', 'GBP');
     await page.getByTestId('investing-holding-submit').click();
     await expect(page.getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
 
     // Open modal again for the USD holding
     await page.getByTestId('investing-add-holding-btn').click();
     await page.getByTestId('investing-holding-symbol').fill('AAPL');
-    await selectOption('investing-holding-account', usdAccount);
+    await selectOption(page, 'investing-holding-account', usdAccount);
     await page.getByTestId('investing-holding-quantity').fill('5');
     await page.getByTestId('investing-holding-avg-cost').fill('150');
-    await selectOption('investing-holding-currency', 'USD');
+    await selectOption(page, 'investing-holding-currency', 'USD');
     await page.getByTestId('investing-holding-submit').click();
     await expect(page.getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
 

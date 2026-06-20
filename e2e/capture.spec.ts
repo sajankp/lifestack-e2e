@@ -3,6 +3,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { retryUnauthorized } from './helpers/api';
 
 const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
 const API_BASE = PLAYWRIGHT_API_URL.endsWith('/v1') ? PLAYWRIGHT_API_URL : `${PLAYWRIGHT_API_URL}/v1`;
@@ -43,7 +44,7 @@ async function loginViaApi(
       data: params.toString(),
     });
     if (lastRes.status() === 200) {
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await retryUnauthorized(() => request.get(`${API_BASE}/auth/me`));
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, 150));
@@ -63,19 +64,13 @@ async function registerViaApi(
   
   await loginViaApi(request, creds.email, creds.password);
 
-  let meRes = await request.get(`${API_BASE}/auth/me`);
-  if (meRes.status() === 401) {
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    meRes = await request.get(`${API_BASE}/auth/me`);
-  }
+  const meRes = await retryUnauthorized(() => request.get(`${API_BASE}/auth/me`));
   expect(meRes.status()).toBe(200);
   const meBody = (await meRes.json()) as { public_id: string };
 
-  let wsRes = await request.get(`${API_BASE}/platform/workspaces/`);
-  if (wsRes.status() === 401) {
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    wsRes = await request.get(`${API_BASE}/platform/workspaces/`);
-  }
+  const wsRes = await retryUnauthorized(
+    () => request.get(`${API_BASE}/platform/workspaces/`),
+  );
   expect(wsRes.status()).toBe(200);
   const wsBody = (await wsRes.json()) as { items?: Array<{ public_id: string }> };
   return { userId: meBody.public_id, workspaceId: wsBody.items?.[0]?.public_id ?? '' };

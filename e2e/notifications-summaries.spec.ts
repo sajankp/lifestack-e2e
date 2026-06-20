@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect, type APIRequestContext, type BrowserContext } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
+import { retryUnauthorized } from './helpers/api';
 import { triggerWeeklySummary } from './helpers/e2e-hooks';
 
 const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
@@ -87,19 +88,13 @@ async function registerViaApi(
 
   await loginViaApi(request, credentials);
 
-  let meResponse = await request.get(`${API_BASE}/auth/me`);
-  if (meResponse.status() === 401) {
-    await loginViaApi(request, credentials);
-    meResponse = await request.get(`${API_BASE}/auth/me`);
-  }
+  const meResponse = await retryUnauthorized(() => request.get(`${API_BASE}/auth/me`));
   expect(meResponse.status()).toBe(200);
   const me = (await meResponse.json()) as { public_id: string };
 
-  let workspaceResponse = await request.get(`${API_BASE}/platform/workspaces/`);
-  if (workspaceResponse.status() === 401) {
-    await loginViaApi(request, credentials);
-    workspaceResponse = await request.get(`${API_BASE}/platform/workspaces/`);
-  }
+  const workspaceResponse = await retryUnauthorized(
+    () => request.get(`${API_BASE}/platform/workspaces/`),
+  );
   expect(workspaceResponse.status()).toBe(200);
   const workspaces = (await workspaceResponse.json()) as { items: WorkspaceInfo[] };
   expect(workspaces.items.length).toBeGreaterThan(0);
