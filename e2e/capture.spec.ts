@@ -62,11 +62,20 @@ async function registerViaApi(
   
   await loginViaApi(request, creds.email, creds.password);
 
-  const meRes = await request.get(`${API_BASE}/auth/me`);
+  let meRes = await request.get(`${API_BASE}/auth/me`);
+  if (meRes.status() === 401) {
+    await loginViaApi(request, creds.email, creds.password);
+    meRes = await request.get(`${API_BASE}/auth/me`);
+  }
   expect(meRes.status()).toBe(200);
   const meBody = (await meRes.json()) as { public_id: string };
 
-  const wsRes = await request.get(`${API_BASE}/platform/workspaces/`);
+  let wsRes = await request.get(`${API_BASE}/platform/workspaces/`);
+  if (wsRes.status() === 401) {
+    await loginViaApi(request, creds.email, creds.password);
+    wsRes = await request.get(`${API_BASE}/platform/workspaces/`);
+  }
+  expect(wsRes.status()).toBe(200);
   const wsBody = (await wsRes.json()) as { items?: Array<{ public_id: string }> };
   return { userId: meBody.public_id, workspaceId: wsBody.items?.[0]?.public_id ?? '' };
 }
