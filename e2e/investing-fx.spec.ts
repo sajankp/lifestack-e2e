@@ -83,8 +83,7 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     await selectOption('investing-holdings-account-filter', gbpAccount);
     await expect(page.getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
     await expect(page.getByTestId('investing-holding-symbol-AAPL')).toHaveCount(0);
-    await page.getByTestId('investing-holdings-account-filter').click();
-    await page.getByRole('option', { name: 'All accounts', exact: true }).click();
+    await selectOption('investing-holdings-account-filter', 'All accounts');
     await expect(page.getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
 
     // 8. Configure reporting currency to USD via API request sharing session cookies
@@ -182,8 +181,7 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     await expect(page.getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
     await expect(page.getByTestId('investing-holding-symbol-AAPL')).toHaveCount(0);
 
-    await page.getByTestId('investing-holdings-account-filter').click();
-    await page.getByRole('option', { name: 'All accounts', exact: true }).click();
+    await selectOption('investing-holdings-account-filter', 'All accounts');
     await expect(page.getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
   });
 

@@ -22,7 +22,7 @@ test.describe('Todo Smoke Flow', () => {
   test('should create a timed todo for today and complete it @smoke', async ({ page }) => {
     const taskTitle = `Smoke Todo ${Date.now()}`;
     const today = new Date();
-    const todayValue = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const todayValue = today.toISOString().slice(0, 10);
 
     await page.getByTestId('nav-todo').click();
     await expect(page.getByRole('heading', { name: 'Todos' })).toBeVisible();
@@ -41,10 +41,7 @@ test.describe('Todo Smoke Flow', () => {
     expect(todoResponse.ok()).toBeTruthy();
     const todo = (await todoResponse.json()) as { due_date: string };
     const dueAt = new Date(todo.due_date);
-    expect(dueAt.getFullYear()).toBe(today.getFullYear());
-    expect(dueAt.getMonth()).toBe(today.getMonth());
-    expect(dueAt.getDate()).toBe(today.getDate());
-    expect(dueAt.getHours()).toBe(16);
+    expect(dueAt.toISOString()).toBe(`${todayValue}T16:00:00.000Z`);
 
     await expect(page.getByRole('heading', { name: taskTitle })).toBeVisible();
     await expect(page.getByText(/^Due:/).filter({ hasText: /4:00/ })).toBeVisible();

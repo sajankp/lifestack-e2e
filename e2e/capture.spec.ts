@@ -64,7 +64,7 @@ async function registerViaApi(
 
   let meRes = await request.get(`${API_BASE}/auth/me`);
   if (meRes.status() === 401) {
-    await loginViaApi(request, creds.email, creds.password);
+    await new Promise((resolve) => setTimeout(resolve, 150));
     meRes = await request.get(`${API_BASE}/auth/me`);
   }
   expect(meRes.status()).toBe(200);
@@ -72,7 +72,7 @@ async function registerViaApi(
 
   let wsRes = await request.get(`${API_BASE}/platform/workspaces/`);
   if (wsRes.status() === 401) {
-    await loginViaApi(request, creds.email, creds.password);
+    await new Promise((resolve) => setTimeout(resolve, 150));
     wsRes = await request.get(`${API_BASE}/platform/workspaces/`);
   }
   expect(wsRes.status()).toBe(200);

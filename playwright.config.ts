@@ -10,6 +10,7 @@ export default defineConfig({
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    timezoneId: 'UTC',
     extraHTTPHeaders: {
       'Origin': process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174',
     },
