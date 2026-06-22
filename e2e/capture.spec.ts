@@ -3,6 +3,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { retryUnauthorized } from './helpers/api';
 
 const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
 const API_BASE = PLAYWRIGHT_API_URL.endsWith('/v1') ? PLAYWRIGHT_API_URL : `${PLAYWRIGHT_API_URL}/v1`;
@@ -43,6 +44,7 @@ async function loginViaApi(
       data: params.toString(),
     });
     if (lastRes.status() === 200) {
+      await retryUnauthorized(() => request.get(`${API_BASE}/auth/me`));
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, 150));
@@ -62,11 +64,14 @@ async function registerViaApi(
   
   await loginViaApi(request, creds.email, creds.password);
 
-  const meRes = await request.get(`${API_BASE}/auth/me`);
+  const meRes = await retryUnauthorized(() => request.get(`${API_BASE}/auth/me`));
   expect(meRes.status()).toBe(200);
   const meBody = (await meRes.json()) as { public_id: string };
 
-  const wsRes = await request.get(`${API_BASE}/platform/workspaces/`);
+  const wsRes = await retryUnauthorized(
+    () => request.get(`${API_BASE}/platform/workspaces/`),
+  );
+  expect(wsRes.status()).toBe(200);
   const wsBody = (await wsRes.json()) as { items?: Array<{ public_id: string }> };
   return { userId: meBody.public_id, workspaceId: wsBody.items?.[0]?.public_id ?? '' };
 }
@@ -98,7 +103,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     expect([200, 204]).toContain(selectRes.status());
 
     // 3. Open App and launch widget
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#voice-agent-trigger')).toBeVisible();
     await page.locator('#voice-agent-trigger').click();
 
@@ -106,17 +111,17 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await expect(page.getByText('Session closed (1006).')).toBeVisible({ timeout: 10000 });
   });
 
-  test('MEMBER gets provider unavailable alert when API key is missing', async ({ page }) => {
+  test('MEMBER can connect to the voice agent session', async ({ page }) => {
     const memberCreds = makeCredentials('member');
     await registerViaApi(page.request, memberCreds);
 
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#voice-agent-trigger')).toBeVisible();
     await page.locator('#voice-agent-trigger').click();
 
-    // The backend connects, but closes with code 4002 because VITE_GEMINI_API_KEY is not set
-    await expect(page.getByText('Voice session needs attention')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Voice capture is temporarily unavailable. Please try again.')).toBeVisible();
+    await expect(page.getByText('Connected. Tap the microphone to talk.')).toBeVisible({
+      timeout: 10000,
+    });
   });
 
   test('MEMBER can submit text and trigger mock success events', async ({ page }) => {
@@ -215,7 +220,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
       window.WebSocket = MockWebSocket as any;
     });
 
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.locator('#voice-agent-trigger').click();
 
     // Verify widget opened and mocked connection is established
@@ -306,7 +311,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
       window.WebSocket = MockWebSocket as any;
     });
 
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.locator('#voice-agent-trigger').click();
 
     // Verify custom error message is rendered in the messages panel

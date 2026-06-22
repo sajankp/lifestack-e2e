@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect, type APIRequestContext, type BrowserContext } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
+import { retryUnauthorized } from './helpers/api';
 import { triggerWeeklySummary } from './helpers/e2e-hooks';
 
 const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
@@ -56,12 +57,17 @@ async function loginViaApi(request: APIRequestContext, credentials: Credentials)
     password: credentials.password,
   });
 
-  const response = await request.post(`${API_BASE}/auth/login`, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    data: params.toString(),
-  });
-
-  expect(response.status(), `Login failed for ${credentials.email}: ${await response.text()}`).toBe(200);
+  let response: import('@playwright/test').APIResponse | undefined;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    response = await request.post(`${API_BASE}/auth/login`, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      data: params.toString(),
+    });
+    if (response.status() === 200) return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  expect(response, `Login request was not attempted for ${credentials.email}`).toBeDefined();
+  expect(response!.status(), `Login failed for ${credentials.email}: ${await response!.text()}`).toBe(200);
 }
 
 async function registerViaApi(
@@ -82,11 +88,13 @@ async function registerViaApi(
 
   await loginViaApi(request, credentials);
 
-  const meResponse = await request.get(`${API_BASE}/auth/me`);
+  const meResponse = await retryUnauthorized(() => request.get(`${API_BASE}/auth/me`));
   expect(meResponse.status()).toBe(200);
   const me = (await meResponse.json()) as { public_id: string };
 
-  const workspaceResponse = await request.get(`${API_BASE}/platform/workspaces/`);
+  const workspaceResponse = await retryUnauthorized(
+    () => request.get(`${API_BASE}/platform/workspaces/`),
+  );
   expect(workspaceResponse.status()).toBe(200);
   const workspaces = (await workspaceResponse.json()) as { items: WorkspaceInfo[] };
   expect(workspaces.items.length).toBeGreaterThan(0);

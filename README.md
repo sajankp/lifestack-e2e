@@ -84,11 +84,11 @@ npm run stack:down
 ## Test Coverage
 
 - **`e2e/auth.spec.ts`**: Registration, login, automatic sidebar category provisioning, protected routes redirection, and session logout.
-- **`e2e/todo-smoke.spec.ts`**: Todo creation and completion smoke flow.
+- **`e2e/todo-smoke.spec.ts`**: Timed todo creation for the current day and completion smoke flow.
 - **`e2e/imports-smoke.spec.ts`**: Spending import validate + commit smoke flow.
-- **`e2e/spending-guardrails.spec.ts`**: Category creation, budget setting, logging breacheable expense transaction (95%), triggering the local-only E2E guardrail hook over HTTP, and verifying the todo alert generation.
+- **`e2e/spending-guardrails.spec.ts`**: Category/budget guardrails plus account-linked transaction creation and account-filter verification.
 - **`e2e/spending-recurring.spec.ts`**: Recurring spending rule creation/edit/deactivation and local-only E2E recurring generation hook verification.
-- **`e2e/investing-fx.spec.ts`**: Multi-currency brokerage accounts creation (GBP & USD), holding asset creation, setting reporting currency (USD), checking valuation, and look-through exposure analytics.
+- **`e2e/investing-fx.spec.ts`**: Multi-currency brokerage accounts and holdings, account filtering, reporting-currency valuation, and look-through exposure analytics.
 - **`e2e/runtime-header-master-config.spec.ts`**: Global header verification (notification icon + logout) and Master Configuration edit actions for accounts and categories.
 - **`e2e/exports.spec.ts`**: JSON and CSV/Zip data export requests, status polling, and download integrity verification.
 - **`e2e/finance-display-settings.spec.ts`**: Workspace/user finance display preference behavior on dashboard totals.
