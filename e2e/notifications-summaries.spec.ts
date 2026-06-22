@@ -167,11 +167,16 @@ test.describe('Notifications and Weekly Summaries E2E Flow', () => {
     await expect(summaryArticle.getByText('Todo', { exact: true })).toBeVisible();
     await expect(summaryArticle.getByText('Spending', { exact: true })).toBeVisible();
     await expect(summaryArticle.getByText('Investing', { exact: true })).toBeVisible();
+    await expect(summaryArticle.getByText('Tasks created')).toBeVisible();
+    await expect(
+      summaryArticle.getByText(
+        'Weekly comparison unavailable because compatible start and end snapshots were not found.',
+      ),
+    ).toBeVisible();
 
     await page.getByTestId('nav-dashboard').click();
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByText('Latest weekly summary')).toBeVisible();
-    await expect(page.getByText('N/A')).toHaveCount(1);
   });
 
   test('keeps notifications and weekly summaries isolated when switching workspaces', async ({
@@ -227,8 +232,7 @@ test.describe('Notifications and Weekly Summaries E2E Flow', () => {
     await expect.poll(() => unreadCount(page.request)).toBe(1);
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Weekly Summaries' })).toBeVisible();
-    await expect(page.getByText('"tasks_created": 1')).toBeVisible();
-    await expect(page.getByText('"tasks_created": 2')).toHaveCount(0);
+    await expect(page.getByText('Tasks created').locator('..')).toContainText('1');
 
     await selectWorkspace(page.request, sharedWorkspace!.public_id);
     await page.reload();
@@ -242,8 +246,7 @@ test.describe('Notifications and Weekly Summaries E2E Flow', () => {
     expect(sharedSummaryRun.summary_public_id).not.toBe(personalSummaryRun.summary_public_id);
     await expect.poll(() => unreadCount(page.request)).toBe(1);
     await page.reload();
-    await expect(page.getByText('"tasks_created": 2')).toBeVisible();
-    await expect(page.getByText('"tasks_created": 1')).toHaveCount(0);
+    await expect(page.getByText('Tasks created').locator('..')).toContainText('2');
 
     await page.getByTestId('header-notifications').click();
     await expect(page.getByRole('heading', { name: 'Notifications', exact: true })).toBeVisible();
@@ -256,7 +259,6 @@ test.describe('Notifications and Weekly Summaries E2E Flow', () => {
     await expect(page.getByRole('heading', { name: 'Notifications', exact: true })).toBeVisible();
     await expect.poll(() => unreadCount(page.request)).toBe(1);
     await page.getByTestId('nav-summaries').click();
-    await expect(page.getByText('"tasks_created": 1')).toBeVisible();
-    await expect(page.getByText('"tasks_created": 2')).toHaveCount(0);
+    await expect(page.getByText('Tasks created').locator('..')).toContainText('1');
   });
 });

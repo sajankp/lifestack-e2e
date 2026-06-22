@@ -115,10 +115,10 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     await page.getByTestId('investing-tab-analytics').click();
 
     // 10. Verify exposure calculations
-    // Since the API uses un-converted holding cost sums (1000 GBP + 750 USD = 1750),
-    // we assert $1,750.00 for both.
-    await expect(page.getByTestId('investing-total-direct')).toContainText('$1,750.00');
-    await expect(page.getByTestId('investing-total-lookthrough')).toContainText('$1,750.00');
+    // Look-through analytics use the same reporting-currency conversion:
+    // 1000 GBP * 1.25 + 750 USD = 2000 USD.
+    await expect(page.getByTestId('investing-total-direct')).toContainText('$2,000.00');
+    await expect(page.getByTestId('investing-total-lookthrough')).toContainText('$2,000.00');
   });
 
   test('should show unconverted multi-currency state before reporting currency is configured', async ({ page }) => {
