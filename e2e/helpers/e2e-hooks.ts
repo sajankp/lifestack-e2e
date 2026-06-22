@@ -6,7 +6,12 @@ async function csrfHeaders(page: Page): Promise<Record<string, string>> {
   const cookies = await page.context().cookies(apiBaseUrl());
   const csrf = cookies.find((cookie) => cookie.name === 'csrf_token');
   expect(csrf?.value, 'Expected csrf_token cookie before calling E2E hook').toBeTruthy();
-  return { 'X-CSRF-Token': csrf!.value };
+  const origin = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5174';
+  return {
+    Origin: origin,
+    Referer: `${origin}/`,
+    'X-CSRF-Token': csrf!.value,
+  };
 }
 
 async function postE2EHook(
