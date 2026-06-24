@@ -3,18 +3,18 @@
 Checklist for integration test environment and security-sensitive flow coverage.
 
 ## Environment and Isolation
-- [ ] E2E stack runs in isolated compose network and database.
-- [ ] Test credentials/data are synthetic and disposable.
-- [ ] `docker compose ... down -v` used after runs to clear state.
+- [x] E2E stack runs in isolated compose network and database.
+- [x] Test credentials/data are synthetic and disposable.
+- [x] `docker compose ... down -v` used after runs to clear state.
 
 ## Auth and Session Flows
-- [ ] Registration/login/logout path is covered by Playwright (`auth.spec.ts`).
-- [ ] Protected-route behavior is validated in browser flows.
+- [x] Registration/login/logout path is covered by Playwright (`auth.spec.ts`).
+- [x] Protected-route behavior is validated in browser flows.
 
 ## Cross-Module High-Risk Flows
-- [ ] Budget guardrails flow validates workflow-triggered todo creation.
-- [ ] Recurring generation flow validates scheduler-created transactions.
-- [ ] Export flow validates authenticated download lifecycle.
+- [x] Budget guardrails flow validates workflow-triggered todo creation.
+- [x] Recurring generation flow validates scheduler-created transactions.
+- [x] Export flow validates authenticated download lifecycle.
 
 ## Harness Safety
 - [x] API and Web URLs are passed through env, not hardcoded to production hosts.
