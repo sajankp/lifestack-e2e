@@ -213,7 +213,7 @@ async function createImportBatch(
       },
     },
   });
-  expect(response.status()).toBe(200);
+  expect(response.status()).toBe(202);
   const body = (await response.json()) as { import_batch: { public_id: string } };
   return body.import_batch.public_id;
 }

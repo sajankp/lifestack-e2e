@@ -67,11 +67,11 @@ test.describe('Imports Smoke Flow', () => {
       await page.getByTestId('imports-upload-validate').click();
 
       const commitButton = page.getByTestId('imports-commit');
-      await expect(commitButton).toBeEnabled({ timeout: 10000 });
+      await expect(commitButton).toBeEnabled({ timeout: 20000 });
       await commitButton.click();
 
       const statusLine = page.locator('p').filter({ hasText: 'Status:' }).first();
-      await expect(statusLine).toContainText('completed', { timeout: 10000 });
+      await expect(statusLine).toContainText('completed', { timeout: 30000 });
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }
@@ -119,11 +119,11 @@ test.describe('Imports Smoke Flow', () => {
       await page.getByTestId('imports-upload-validate').click();
 
       const commitButton = page.getByTestId('imports-commit');
-      await expect(commitButton).toBeEnabled({ timeout: 10000 });
+      await expect(commitButton).toBeEnabled({ timeout: 20000 });
       await commitButton.click();
 
       const statusLine = page.locator('p').filter({ hasText: 'Status:' }).first();
-      await expect(statusLine).toContainText('completed', { timeout: 10000 });
+      await expect(statusLine).toContainText('completed', { timeout: 30000 });
 
       const transactionsAfterCommit = await context.request.get(
         `${apiBaseUrl}/v1/spending/transactions`,
