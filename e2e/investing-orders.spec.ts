@@ -139,6 +139,8 @@ test.describe('Investing Orders E2E Flow', () => {
     await page.getByTestId('investing-place-order-btn').click();
 
     // Fill the order form
+    await page.getByTestId('order-account-select').click();
+    await page.getByRole('option', { name: brokerageAccount.name }).click();
     await page.getByTestId('order-symbol').fill('AAPL');
     await page.getByTestId('order-quantity').fill('10');
     await page.getByTestId('order-price').fill('150.00');
@@ -244,6 +246,8 @@ test.describe('Investing Orders E2E Flow', () => {
     await page.getByTestId('investing-tab-orders').click();
     await page.getByTestId('investing-place-order-btn').click();
 
+    await page.getByTestId('order-account-select').click();
+    await page.getByRole('option', { name: smallBrokerage.name }).click();
     await page.getByTestId('order-symbol').fill('AAPL');
     await page.getByTestId('order-quantity').fill('10');
     await page.getByTestId('order-price').fill('150.00');
