@@ -65,7 +65,7 @@ async function transferCash(
       to_account_id: toAccountId,
       from_module: 'spending',
       to_module: 'investing',
-      gross_amount_sent: amount,
+      gross_amount: amount,
       net_amount_received: amount,
       from_currency_code: currency,
       to_currency_code: currency,
