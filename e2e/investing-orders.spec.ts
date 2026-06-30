@@ -336,11 +336,13 @@ test.describe('Investing Orders E2E Flow', () => {
     const holdingId = await holdingRow.getAttribute('data-testid').then((id) => id?.replace('investing-holding-row-', ''));
     await page.getByTestId(`investing-holding-trade-history-${holdingId}`).click();
 
-    // Should show 2 orders in the trade history
-    const tradeRows = page.locator('[data-testid*="investing-order-row"]');
+    // Should show 2 orders in the trade history modal, scoped to this holding's
+    // full order history (not capped by the main Orders tab's pagination).
+    // Sorted newest-first, matching the main Orders tab convention.
+    const tradeRows = page.locator('[data-testid*="investing-trade-history-row"]');
     await expect(tradeRows).toHaveCount(2);
-    await expect(tradeRows.first()).toContainText('buy');
-    await expect(tradeRows.last()).toContainText('sell');
+    await expect(tradeRows.first()).toContainText(/sell/i);
+    await expect(tradeRows.last()).toContainText(/buy/i);
   });
 
   test('should show transfer-triggered cash balance entry', async ({ page }) => {
