@@ -339,7 +339,7 @@ test.describe('Investing Orders E2E Flow', () => {
     // Should show 2 orders in the trade history modal, scoped to this holding's
     // full order history (not capped by the main Orders tab's pagination).
     // Sorted newest-first, matching the main Orders tab convention.
-    const tradeRows = page.locator('[data-testid*="investing-trade-history-row"]');
+    const tradeRows = page.getByTestId(/^investing-trade-history-row-/);
     await expect(tradeRows).toHaveCount(2);
     await expect(tradeRows.first()).toContainText(/sell/i);
     await expect(tradeRows.last()).toContainText(/buy/i);
