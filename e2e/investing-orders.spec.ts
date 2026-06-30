@@ -289,16 +289,18 @@ test.describe('Investing Orders E2E Flow', () => {
     await page.getByTestId('nav-investing').click();
     await page.getByTestId('investing-tab-orders').click();
 
-    // Delete the second order
+    // Delete the second order — triggers a confirmation dialog
+    await page
+      .getByTestId(`investing-order-row-${secondOrder.public_id}`)
+      .getByRole('button', { name: /delete/i })
+      .click();
+
     const deletePromise = page.waitForResponse(
       (res) =>
         res.url().includes(`/v1/investing/orders/${secondOrder.public_id}`) &&
         res.request().method() === 'DELETE',
     );
-    await page
-      .getByTestId(`investing-order-row-${secondOrder.public_id}`)
-      .getByRole('button', { name: /delete/i })
-      .click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
     const deleteRes = await deletePromise;
     expect(deleteRes.ok()).toBeTruthy();
 
@@ -336,11 +338,13 @@ test.describe('Investing Orders E2E Flow', () => {
     const holdingId = await holdingRow.getAttribute('data-testid').then((id) => id?.replace('investing-holding-row-', ''));
     await page.getByTestId(`investing-holding-trade-history-${holdingId}`).click();
 
-    // Should show 2 orders in the trade history
-    const tradeRows = page.locator('[data-testid*="investing-order-row"]');
+    // Should show 2 orders in the trade history modal, scoped to this holding's
+    // full order history (not capped by the main Orders tab's pagination).
+    // Sorted newest-first, matching the main Orders tab convention.
+    const tradeRows = page.getByTestId(/^investing-trade-history-row-/);
     await expect(tradeRows).toHaveCount(2);
-    await expect(tradeRows.first()).toContainText('buy');
-    await expect(tradeRows.last()).toContainText('sell');
+    await expect(tradeRows.first()).toContainText(/sell/i);
+    await expect(tradeRows.last()).toContainText(/buy/i);
   });
 
   test('should show transfer-triggered cash balance entry', async ({ page }) => {

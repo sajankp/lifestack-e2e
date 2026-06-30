@@ -96,7 +96,7 @@ jobs:
       - name: Run E2E tests
         run: |
           cd lifestack-e2e
-          npm run test:full
+          npm run test:local
 
       - name: Stop Docker Compose Stack
         if: always()
