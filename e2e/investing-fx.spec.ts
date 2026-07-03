@@ -20,11 +20,14 @@ async function csrfHeaders(page: Page) {
   const state = await page.context().storageState();
   const csrfCookie = state.cookies.find((c) => c.name === 'csrf_token');
   expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
+  if (!csrfCookie) {
+    throw new Error('CSRF token cookie is missing');
+  }
   const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
   return {
     Origin: origin,
     Referer: `${origin}/`,
-    ...(csrfCookie ? { 'X-CSRF-Token': csrfCookie.value } : {}),
+    'X-CSRF-Token': csrfCookie.value,
   };
 }
 
@@ -93,12 +96,15 @@ async function submitCurrentPrice(page: Page, symbol: string, unitPrice: string)
   const holdings = (await holdingsRes.json()).items as Array<{ public_id: string; symbol: string }>;
   const holding = holdings.find((h) => h.symbol === symbol);
   expect(holding, `Holding for symbol ${symbol} should exist`).toBeDefined();
+  if (!holding) {
+    throw new Error(`Holding for symbol ${symbol} should exist`);
+  }
 
   const priceRes = await page.request.post(`${API_BASE}/investing/prices`, {
     headers: await csrfHeaders(page),
     data: {
       price_date: new Date().toISOString().slice(0, 10),
-      prices: [{ holding_public_id: holding!.public_id, unit_price: unitPrice }],
+      prices: [{ holding_public_id: holding.public_id, unit_price: unitPrice }],
     },
   });
   expect(priceRes.status(), `Price submission failed: ${await priceRes.text()}`).toBe(201);

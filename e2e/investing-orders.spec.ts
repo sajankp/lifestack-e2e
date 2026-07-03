@@ -25,11 +25,14 @@ async function csrfHeaders(page: Page) {
   const state = await page.context().storageState();
   const csrfCookie = state.cookies.find((c) => c.name === 'csrf_token');
   expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
+  if (!csrfCookie) {
+    throw new Error('CSRF token cookie is missing');
+  }
   const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
   return {
     Origin: origin,
     Referer: `${origin}/`,
-    ...(csrfCookie ? { 'X-CSRF-Token': csrfCookie.value } : {}),
+    'X-CSRF-Token': csrfCookie.value,
   };
 }
 
@@ -313,7 +316,7 @@ test.describe('Investing Orders E2E Flow', () => {
 
     // Verify error is shown (placeOrderMutation renders its error message inline in the modal form,
     // not via a toast/alert role — see InvestingPage.tsx's placeOrderMutation.isError block)
-    await expect(page.locator('form p.text-rose-400')).toContainText(/insufficient|cash/i);
+    await expect(page.locator('form').getByText(/insufficient|cash/i)).toBeVisible();
   });
 
   test('should delete an order and recompute holding', async ({ page }) => {
