@@ -135,7 +135,7 @@ test.describe('Investing Orders E2E Flow', () => {
     await page.getByTestId('nav-investing').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
 
-    await page.getByTestId('investing-tab-orders').click();
+    await page.getByTestId('investing-tab-cash').click();
     await page.getByTestId('investing-place-order-btn').click();
 
     // Fill the order form
@@ -160,7 +160,7 @@ test.describe('Investing Orders E2E Flow', () => {
     // Verify order appears in the orders table
     await expect(page.getByTestId('investing-orders-table')).toBeVisible();
     await expect(page.getByTestId('investing-orders-table')).toContainText('AAPL');
-    await expect(page.getByTestId('investing-orders-table')).toContainText('buy');
+    await expect(page.getByTestId('investing-orders-table')).toContainText(/buy/i);
 
     // Switch to Holdings tab and verify holding created
     await page.getByTestId('investing-tab-holdings').click();
@@ -180,7 +180,7 @@ test.describe('Investing Orders E2E Flow', () => {
 
     // Place second buy via UI
     await page.getByTestId('nav-investing').click();
-    await page.getByTestId('investing-tab-orders').click();
+    await page.getByTestId('investing-tab-cash').click();
     await page.getByTestId('investing-place-order-btn').click();
 
     await page.getByTestId('order-symbol').fill('AAPL');
@@ -201,7 +201,10 @@ test.describe('Investing Orders E2E Flow', () => {
   });
 
   test('should place a sell order and verify realized gain/loss', async ({ page }) => {
-    // Pre-seed buy via API
+    // Pre-seed buy via API. Backdated so it's unambiguously before the sell placed via the UI below:
+    // the "Trade date & time" field is a datetime-local input (minute precision), so a buy occurring
+    // via the API "now" (second precision) can land in the same minute as an immediately-following UI
+    // sell and race the FIFO "sell exceeds shares held at that point in time" check.
     await placeOrderViaApi(page, {
       account_id: brokerageAccount.public_id,
       order_type: 'buy',
@@ -209,10 +212,11 @@ test.describe('Investing Orders E2E Flow', () => {
       quantity: '10',
       price_per_unit: '150.00',
       currency: 'USD',
+      occurred_at: new Date('2026-01-01').toISOString(),
     });
 
     await page.getByTestId('nav-investing').click();
-    await page.getByTestId('investing-tab-orders').click();
+    await page.getByTestId('investing-tab-cash').click();
     await page.getByTestId('investing-place-order-btn').click();
 
     // Toggle to sell
@@ -237,13 +241,61 @@ test.describe('Investing Orders E2E Flow', () => {
     await expect(holdingRow).toContainText('150');
   });
 
+  test('should apply FIFO lot consumption on a sell spanning two buy lots', async ({ page }) => {
+    // Lot 1: buy 10 @ 100 (oldest)
+    await placeOrderViaApi(page, {
+      account_id: brokerageAccount.public_id,
+      order_type: 'buy',
+      symbol: 'GOOG',
+      quantity: '10',
+      price_per_unit: '100.00',
+      currency: 'USD',
+      occurred_at: new Date('2026-01-01').toISOString(),
+    });
+    // Lot 2: buy 10 @ 200
+    await placeOrderViaApi(page, {
+      account_id: brokerageAccount.public_id,
+      order_type: 'buy',
+      symbol: 'GOOG',
+      quantity: '10',
+      price_per_unit: '200.00',
+      currency: 'USD',
+      occurred_at: new Date('2026-02-01').toISOString(),
+    });
+
+    // Sell 15 @ 250: FIFO consumes lot 1 fully (10 @ 100) then 5 units of lot 2 (@ 200).
+    // realized_gain_loss = 10 * (250 - 100) + 5 * (250 - 200) = 1500 + 250 = 1750
+    // Under moving-average this would instead be 15 * (250 - 150) = 1500 — a different number,
+    // which is why this assertion is the discriminating one between the two cost models.
+    // Remaining position: 5 units left in lot 2, so avg_cost of the OPEN lot = 200
+    // (moving-average would have kept blended avg_cost = 150 instead).
+    await placeOrderViaApi(page, {
+      account_id: brokerageAccount.public_id,
+      order_type: 'sell',
+      symbol: 'GOOG',
+      quantity: '15',
+      price_per_unit: '250.00',
+      currency: 'USD',
+      occurred_at: new Date('2026-03-01').toISOString(),
+    });
+
+    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('investing-tab-cash').click();
+    await expect(page.getByTestId('investing-orders-table')).toContainText('1,750');
+
+    await page.getByTestId('investing-tab-holdings').click();
+    const holdingRow = page.locator('[data-testid*="investing-holding-row"]').filter({ hasText: 'GOOG' });
+    await expect(holdingRow).toContainText('5');
+    await expect(holdingRow).toContainText('200');
+  });
+
   test('should reject buy order when insufficient cash', async ({ page }) => {
     // Transfer only $100 to a separate brokerage
     const smallBrokerage = await createBrokerageAccount(page, `Small Brokerage ${seed}`, 'USD');
     await transferCash(page, bankAccount.public_id, smallBrokerage.public_id, '100', 'USD');
 
     await page.getByTestId('nav-investing').click();
-    await page.getByTestId('investing-tab-orders').click();
+    await page.getByTestId('investing-tab-cash').click();
     await page.getByTestId('investing-place-order-btn').click();
 
     await page.getByTestId('order-account-select').click();
@@ -259,10 +311,9 @@ test.describe('Investing Orders E2E Flow', () => {
     const orderRes = await orderPromise;
     expect(orderRes.ok()).toBeFalsy();
 
-    // Verify error is shown
-    await expect(page.locator('[role="alert"], .toast, [data-testid*="error"]')).toContainText(
-      /insufficient|cash/i,
-    );
+    // Verify error is shown (placeOrderMutation renders its error message inline in the modal form,
+    // not via a toast/alert role — see InvestingPage.tsx's placeOrderMutation.isError block)
+    await expect(page.locator('form p.text-rose-400')).toContainText(/insufficient|cash/i);
   });
 
   test('should delete an order and recompute holding', async ({ page }) => {
@@ -287,7 +338,7 @@ test.describe('Investing Orders E2E Flow', () => {
     });
 
     await page.getByTestId('nav-investing').click();
-    await page.getByTestId('investing-tab-orders').click();
+    await page.getByTestId('investing-tab-cash').click();
 
     // Delete the second order — triggers a confirmation dialog
     await page
