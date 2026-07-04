@@ -176,6 +176,32 @@ async function createAccount(
   return account.public_id;
 }
 
+async function transferCash(
+  request: APIRequestContext,
+  workspaceId: string,
+  fromAccountId: string,
+  toAccountId: string,
+  amount: string,
+  currency: string,
+): Promise<void> {
+  await selectWorkspace(request, workspaceId);
+  const response = await request.post(`${API_BASE}/finance/transfers`, {
+    headers: await csrfHeaders(request),
+    data: {
+      from_account_id: fromAccountId,
+      to_account_id: toAccountId,
+      from_module: 'spending',
+      to_module: 'investing',
+      gross_amount: amount,
+      net_amount_received: amount,
+      from_currency_code: currency,
+      to_currency_code: currency,
+      occurred_at: new Date().toISOString(),
+    },
+  });
+  expect(response.status(), `Transfer failed: ${await response.text()}`).toBe(201);
+}
+
 async function createHolding(
   request: APIRequestContext,
   workspaceId: string,
@@ -183,19 +209,35 @@ async function createHolding(
   accountId: string,
 ): Promise<string> {
   await selectWorkspace(request, workspaceId);
-  const response = await request.post(`${API_BASE}/investing/holdings`, {
+
+  // Holdings are order-derived only (manual POST /investing/holdings was
+  // deliberately removed, commit 51a20c2) — fund the brokerage account then
+  // place a buy order to create the holding, matching every other spec.
+  const walletAccountId = await createAccount(request, workspaceId, `${symbol} funding wallet`, 'wallet');
+  await transferCash(request, workspaceId, walletAccountId, accountId, '2000', 'USD');
+
+  const orderResponse = await request.post(`${API_BASE}/investing/orders`, {
     headers: await csrfHeaders(request),
     data: {
-      symbol,
       account_id: accountId,
+      order_type: 'buy',
+      symbol,
       quantity: '10',
-      avg_cost: '100.00',
+      price_per_unit: '100.00',
       currency: 'USD',
+      occurred_at: new Date().toISOString(),
     },
   });
-  expect(response.status()).toBe(201);
-  const holding = (await response.json()) as { public_id: string };
-  return holding.public_id;
+  expect(orderResponse.status(), `Order placement failed: ${await orderResponse.text()}`).toBe(201);
+
+  const holdingsResponse = await request.get(`${API_BASE}/investing/holdings`, {
+    headers: await csrfHeaders(request),
+  });
+  expect(holdingsResponse.status()).toBe(200);
+  const holdings = (await holdingsResponse.json()) as { items: { public_id: string; symbol: string }[] };
+  const holding = holdings.items.find((item) => item.symbol === symbol);
+  expect(holding, `No holding found for symbol ${symbol}`).toBeDefined();
+  return holding!.public_id;
 }
 
 async function createImportBatch(
