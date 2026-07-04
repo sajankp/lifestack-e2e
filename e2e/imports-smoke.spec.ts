@@ -9,6 +9,7 @@ import { registerAndLogin } from './helpers/auth';
 test.describe('Imports Smoke Flow', () => {
   let testEmail = '';
   let testUsername = '';
+  let accountName = '';
   const testPassword = 'Password123!';
   const apiBaseUrl = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8000';
 
@@ -16,12 +17,25 @@ test.describe('Imports Smoke Flow', () => {
     const uniqueId = randomUUID();
     testEmail = `e2e-imports-${uniqueId}@example.com`;
     testUsername = `e2e_imports_${uniqueId.replace(/-/g, '_')}`;
+    accountName = `Import Wallet ${uniqueId.slice(0, 8)}`;
 
     await registerAndLogin(page, baseURL, {
       email: testEmail,
       username: testUsername,
       password: testPassword,
     });
+
+    // Create an account first (since spec-054 makes it mandatory)
+    await page.getByTestId('nav-settings').click();
+    await expect(page.getByRole('heading', { name: 'Master Configuration' })).toBeVisible();
+    await page.getByTestId('master-account-name').fill(accountName);
+    await page.getByTestId('master-account-currency').click();
+    await page.getByRole('option', { name: /^USD\b/ }).click();
+    const accountPromise = page.waitForResponse(
+      (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST'
+    );
+    await page.getByTestId('master-account-create').click();
+    await accountPromise;
   });
 
   test('should validate and commit a spending import @smoke', async ({ page, baseURL }) => {
@@ -63,6 +77,8 @@ test.describe('Imports Smoke Flow', () => {
       await page.getByRole('button', { name: 'New Import' }).click();
 
       await page.getByTestId('imports-module-select').selectOption('spending-transactions');
+      await page.getByTestId('imports-target-account').click();
+      await page.getByRole('option', { name: `${accountName} (wallet)`, exact: true }).click();
       await page.getByTestId('imports-file-input').setInputFiles(csvPath);
       await page.getByTestId('imports-upload-validate').click();
 
@@ -115,6 +131,8 @@ test.describe('Imports Smoke Flow', () => {
       await page.getByRole('button', { name: 'New Import' }).click();
 
       await page.getByTestId('imports-module-select').selectOption('spending-transactions');
+      await page.getByTestId('imports-target-account').click();
+      await page.getByRole('option', { name: `${accountName} (wallet)`, exact: true }).click();
       await page.getByTestId('imports-file-input').setInputFiles(csvPath);
       await page.getByTestId('imports-upload-validate').click();
 

@@ -136,11 +136,13 @@ async function createSpendingTransaction(
   description: string,
   amount: string,
 ): Promise<string> {
+  const accountId = await createAccount(request, workspaceId, `${description} account`, 'wallet');
   const categoryId = await createCategory(request, workspaceId, `${description} category`);
 
   const response = await request.post(`${API_BASE}/spending/transactions`, {
     headers: await csrfHeaders(request),
     data: {
+      account_id: accountId,
       category_id: categoryId,
       amount,
       type: 'expense',
@@ -162,11 +164,12 @@ async function createAccount(
   request: APIRequestContext,
   workspaceId: string,
   name: string,
+  accountType = 'brokerage',
 ): Promise<string> {
   await selectWorkspace(request, workspaceId);
   const response = await request.post(`${API_BASE}/finance/accounts`, {
     headers: await csrfHeaders(request),
-    data: { name, account_type: 'brokerage', default_currency_code: 'USD' },
+    data: { name, account_type: accountType, default_currency_code: 'USD' },
   });
   expect(response.status()).toBe(201);
   const account = (await response.json()) as { public_id: string };

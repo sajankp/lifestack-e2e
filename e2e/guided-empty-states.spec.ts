@@ -45,7 +45,7 @@ test.describe('Guided Empty States E2E Flow', () => {
     await page.getByTestId('nav-investing').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
     await expect(page.getByText('No holdings yet.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Add Holding' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sync Latest Close' })).toBeVisible();
     await page.getByTestId('investing-tab-cash').click();
     await expect(page.getByText('No cash balances yet.')).toBeVisible();
 
@@ -65,7 +65,7 @@ test.describe('Guided Empty States E2E Flow', () => {
     await page.getByTestId('header-notifications').click();
     await expect(page.getByRole('heading', { name: 'Notifications', exact: true })).toBeVisible();
     await expect(page.getByText('No notifications yet')).toBeVisible();
-    await expect(page.getByText('No preferences configured yet.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Enable on this device' })).toBeVisible();
 
     await page.getByTestId('nav-summaries').click();
     await expect(page.getByRole('heading', { name: 'Weekly Summaries', exact: true })).toBeVisible();
