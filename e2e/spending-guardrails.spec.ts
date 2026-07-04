@@ -40,7 +40,8 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
       (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST'
     );
     await page.getByTestId('master-account-create').click();
-    await accountPromise;
+    const accountResponse = await accountPromise;
+    expect(accountResponse.ok()).toBeTruthy();
 
     // 1. Navigate to Spending tab
     await page.getByTestId('nav-spending').click();

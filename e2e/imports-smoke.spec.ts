@@ -35,7 +35,8 @@ test.describe('Imports Smoke Flow', () => {
       (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST'
     );
     await page.getByTestId('master-account-create').click();
-    await accountPromise;
+    const accountResponse = await accountPromise;
+    expect(accountResponse.ok()).toBeTruthy();
   });
 
   test('should validate and commit a spending import @smoke', async ({ page, baseURL }) => {
