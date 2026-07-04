@@ -1,0 +1,6 @@
+# Overlay for demo-video capture runs: enables the demo reset endpoint on api-e2e.
+# Usage: docker compose -f docker-compose.e2e.yml -f docker-compose.demo.yml up -d --build
+services:
+  api-e2e:
+    environment:
+      - ENABLE_DEMO_RESET=true
