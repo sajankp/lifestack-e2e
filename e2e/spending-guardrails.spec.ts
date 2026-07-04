@@ -29,6 +29,20 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
       await page.getByRole('option', { name: optionName, exact: true }).click();
     };
 
+    const accountName = `Default Wallet`;
+    // Create an account first (since spec-054 makes it mandatory)
+    await page.getByTestId('nav-settings').click();
+    await expect(page.getByRole('heading', { name: 'Master Configuration' })).toBeVisible();
+    await page.getByTestId('master-account-name').fill(accountName);
+    await page.getByTestId('master-account-currency').click();
+    await page.getByRole('option', { name: /^USD\b/ }).click();
+    const accountPromise = page.waitForResponse(
+      (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST'
+    );
+    await page.getByTestId('master-account-create').click();
+    const accountResponse = await accountPromise;
+    expect(accountResponse.ok()).toBeTruthy();
+
     // 1. Navigate to Spending tab
     await page.getByTestId('nav-spending').click();
     await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
@@ -63,6 +77,7 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     await page.getByTestId('spending-open-new-transaction').click();
     await page.getByTestId('spending-transaction-amount').fill('95');
     await selectFromCombobox(page.getByTestId('spending-transaction-category'), customCategory);
+    await selectFromCombobox(page.getByTestId('spending-transaction-account'), `${accountName} (wallet)`);
     await page.getByTestId('spending-transaction-description').fill('E2E Feast');
     const transactionPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/spending/transactions') && res.request().method() === 'POST'

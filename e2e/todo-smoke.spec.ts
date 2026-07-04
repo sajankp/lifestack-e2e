@@ -31,7 +31,7 @@ test.describe('Todo Smoke Flow', () => {
 
     await page.getByTestId('todo-new-title').fill(taskTitle);
     await page.getByTestId('todo-new-due-date').click();
-    await page.locator(`[data-day="${todayValue}"]`).click();
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
     await page.getByTestId('todo-new-due-time').fill('16:00');
     const todoPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/todo/') && res.request().method() === 'POST'
@@ -44,7 +44,7 @@ test.describe('Todo Smoke Flow', () => {
     expect(dueAt.toISOString()).toBe(`${todayValue}T16:00:00.000Z`);
 
     await expect(page.getByRole('heading', { name: taskTitle })).toBeVisible();
-    await expect(page.getByText(/^Due:/).filter({ hasText: /4:00/ })).toBeVisible();
+    await expect(page.getByText(/^Due:/).filter({ hasText: /16:00/ })).toBeVisible();
     await page.getByRole('button', { name: `Mark todo as complete: ${taskTitle}` }).click();
     await expect(page.getByRole('button', { name: `Mark todo as incomplete: ${taskTitle}` })).toBeVisible();
   });
