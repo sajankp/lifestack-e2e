@@ -247,8 +247,8 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     await expect(page.getByTestId('investing-portfolio-value')).toContainText('N/A');
     await expect(page.getByTestId('investing-reporting-currency')).toContainText('Not configured');
     await expect(page.getByText('Multiple currencies detected')).toBeVisible();
-    await expect(page.getByText('£1,000.00').filter({ visible: true })).toBeVisible();
-    await expect(page.getByText('$750.00').filter({ visible: true })).toBeVisible();
+    await expect(page.getByText('£1,000.00').filter({ visible: true }).first()).toBeVisible();
+    await expect(page.getByText('$750.00').filter({ visible: true }).first()).toBeVisible();
     await expect(page.getByTestId('investing-fx-rates-used')).toHaveCount(0);
   });
 });
