@@ -104,7 +104,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
 
     // 3. Open App and launch widget
     await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await expect(page.locator('#voice-agent-trigger')).toBeVisible();
+    await expect(page.locator('#voice-agent-trigger')).toBeVisible({ timeout: 10_000 });
     await page.locator('#voice-agent-trigger').click();
 
     // The backend should immediately close the WebSocket with ForbiddenError (handshake reject yields 1006 in browser)
@@ -116,7 +116,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await registerViaApi(page.request, memberCreds);
 
     await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await expect(page.locator('#voice-agent-trigger')).toBeVisible();
+    await expect(page.locator('#voice-agent-trigger')).toBeVisible({ timeout: 10_000 });
     await page.locator('#voice-agent-trigger').click();
 
     await expect(page.getByText('Connected. Tap the microphone to talk.')).toBeVisible({

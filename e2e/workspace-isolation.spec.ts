@@ -403,8 +403,8 @@ test.describe('Workspace isolation E2E Flow', () => {
     await expect(page.getByTestId('header-workspace-select')).toHaveValue(
       personalWorkspace!.public_id,
     );
-    await expect(page.getByText(personalTransactionDescription, { exact: true })).toBeVisible();
-    await expect(page.getByText(sharedTransactionDescription, { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId('transaction-description-table').filter({ hasText: personalTransactionDescription })).toBeVisible();
+    await expect(page.getByTestId('transaction-description-table').filter({ hasText: sharedTransactionDescription })).toHaveCount(0);
 
     await page.goto('/investing');
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();

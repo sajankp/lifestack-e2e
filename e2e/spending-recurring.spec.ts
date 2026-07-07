@@ -112,7 +112,7 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
       .toBeTruthy();
     await page.reload();
     await page.getByTestId('spending-tab-transactions').click();
-    await expect(page.locator(`text=${ruleDescription}`)).toBeVisible();
+    await expect(page.getByTestId('transaction-description-table').filter({ hasText: ruleDescription })).toBeVisible();
     await expect(page.locator('tbody').locator('text=19.99')).toBeVisible();
 
     // 8. Go back to Recurring tab and deactivate the rule

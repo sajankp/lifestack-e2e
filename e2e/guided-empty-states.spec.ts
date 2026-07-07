@@ -44,10 +44,10 @@ test.describe('Guided Empty States E2E Flow', () => {
 
     await page.getByTestId('nav-investing').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
-    await expect(page.getByText('No holdings yet.')).toBeVisible();
+    await expect(page.getByText('No holdings yet.').filter({ visible: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Sync Latest Close' })).toBeVisible();
     await page.getByTestId('investing-tab-cash').click();
-    await expect(page.getByText('No cash balances yet.')).toBeVisible();
+    await expect(page.getByText('No cash balances yet.').filter({ visible: true })).toBeVisible();
 
     await page.getByTestId('nav-imports').click();
     await expect(page.getByRole('heading', { name: 'Bulk Imports' })).toBeVisible();

@@ -87,7 +87,7 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
 
     // Verify transaction appears in the list
     await page.getByTestId('spending-tab-transactions').click();
-    await expect(page.locator('text=E2E Feast')).toBeVisible();
+    await expect(page.getByTestId('transaction-description-table').filter({ hasText: 'E2E Feast' })).toBeVisible();
 
     // 5. Trigger the background budget guardrails evaluator
     await triggerBudgetGuardrails(page);
