@@ -65,6 +65,8 @@ test.describe('Guided Empty States E2E Flow', () => {
     await page.getByTestId('header-notifications').click();
     await expect(page.getByRole('heading', { name: 'Notifications', exact: true })).toBeVisible();
     await expect(page.getByText('No notifications yet')).toBeVisible();
+    // Devices moved under the "Preferences & Devices" tab.
+    await page.getByTestId('notifications-tab-settings').click();
     await expect(page.getByRole('button', { name: 'Enable on this device' })).toBeVisible();
 
     await page.getByTestId('nav-summaries').click();
@@ -72,7 +74,8 @@ test.describe('Guided Empty States E2E Flow', () => {
     await expect(page.getByText('No weekly summaries yet')).toBeVisible();
 
     await page.getByTestId('nav-settings').click();
-    await expect(page.getByRole('heading', { name: 'Master Configuration' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+    await page.getByTestId('settings-tab-accounts').click();
     await expect(page.getByTestId('master-account-name')).toBeVisible();
     await expect(page.getByTestId('master-account-create')).toBeVisible();
   });

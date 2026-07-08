@@ -32,7 +32,8 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     const accountName = `Default Wallet`;
     // Create an account first (since spec-054 makes it mandatory)
     await page.getByTestId('nav-settings').click();
-    await expect(page.getByRole('heading', { name: 'Master Configuration' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+    await page.getByTestId('settings-tab-accounts').click();
     await page.getByTestId('master-account-name').fill(accountName);
     await page.getByTestId('master-account-currency').click();
     await page.getByRole('option', { name: /^USD\b/ }).click();
@@ -146,7 +147,8 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     const description = `Account-linked spend ${testUsername.slice(-8)}`;
 
     await page.getByTestId('nav-settings').click();
-    await expect(page.getByRole('heading', { name: 'Master Configuration' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+    await page.getByTestId('settings-tab-accounts').click();
     const accountsSection = page.getByTestId('master-accounts-section');
     await page.getByTestId('master-account-name').fill(accountName);
     await page.getByTestId('master-account-currency').click();

@@ -140,7 +140,6 @@ test.describe('Transfer Flow E2E', () => {
     await expectTransferRow(page.locator('tbody tr').filter({ hasText: sameCurrencyNote }), [
       authedUsdSource.name,
       authedUsdTarget.name,
-      'spending',
       '$125.00',
       sameCurrencyNote,
     ]);
@@ -157,7 +156,9 @@ test.describe('Transfer Flow E2E', () => {
       '$100.00',
       '£77.00',
       'FX 0.8000000000',
-      'Fees metadata',
+      // Fee pill now shows the summed fx+platform+tax fee amount (in the
+      // source currency) instead of an opaque "Fees metadata" label.
+      '$3.00',
       crossCurrencyNote,
     ]);
 

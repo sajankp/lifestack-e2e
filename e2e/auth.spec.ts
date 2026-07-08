@@ -62,8 +62,9 @@ test.describe('Authentication and User Registration Flow', () => {
     await expect(page).toHaveURL(`${baseURL}/`, { timeout: 10000 });
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
 
-    // 7. Log out
-    await page.getByTestId('header-logout').click();
+    // 7. Log out (logout now lives inside the profile dropdown menu)
+    await page.getByTestId('header-profile-menu').click();
+    await page.getByRole('button', { name: 'Logout' }).click();
     await expect(page).toHaveURL(/.*\/login/);
 
     // 8. Try accessing protected page while logged out

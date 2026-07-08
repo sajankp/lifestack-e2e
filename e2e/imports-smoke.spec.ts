@@ -27,7 +27,8 @@ test.describe('Imports Smoke Flow', () => {
 
     // Create an account first (since spec-054 makes it mandatory)
     await page.getByTestId('nav-settings').click();
-    await expect(page.getByRole('heading', { name: 'Master Configuration' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+    await page.getByTestId('settings-tab-accounts').click();
     await page.getByTestId('master-account-name').fill(accountName);
     await page.getByTestId('master-account-currency').click();
     await page.getByRole('option', { name: /^USD\b/ }).click();
