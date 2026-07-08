@@ -31,7 +31,26 @@ docker compose -f docker-compose.e2e.yml exec api-e2e alembic upgrade head
 ```
 
 ### 4. Run the Test Suite
-Execute the Playwright integration tests:
+
+Prefer the npm scripts over hand-assembling `playwright test` — they wrap the
+env vars above and gate on `precheck` (verifies the stack is actually up
+before spending time on a doomed run):
+
+```bash
+npm run test:smoke   # @smoke-tagged subset only, assumes stack is already running + env vars set
+npm run test:full    # full suite, assumes stack is already running + env vars set
+npm run test:local        # full suite against the standard local ports (sets env vars for you)
+npm run test:local:smoke  # @smoke subset against the standard local ports
+npm run test:smoke:stack  # brings the stack up, runs @smoke, tears it down
+npm run test:full:stack   # brings the stack up, runs the full suite, tears it down
+```
+
+Other scripts:
+- `npm run precheck` — verifies the composed stack (web/api/db) is reachable before a run.
+- `npm run stack:up` / `npm run stack:down` — bring the composed stack up/down without running tests.
+- `npm run security:audit` — `npm audit --audit-level=high`.
+
+If you want to invoke Playwright directly instead:
 ```bash
 PLAYWRIGHT_BASE_URL=http://localhost:5174 \
 PLAYWRIGHT_API_URL=http://localhost:8001 \
@@ -47,11 +66,38 @@ docker compose -f docker-compose.e2e.yml down -v
 
 ---
 
+## Demo tooling
+
+Two additional pieces of tooling support recording a reviewer-facing demo video, separate from the test suite:
+
+- **`docker-compose.demo.yml`**: an overlay on top of `docker-compose.e2e.yml` that sets `ENABLE_DEMO_RESET=true` on `api-e2e`, exposing the demo-reset endpoint used to seed a clean guided-tour dataset:
+  ```bash
+  docker compose -f docker-compose.e2e.yml -f docker-compose.demo.yml up -d --build
+  ```
+- **`scripts/record-demo.mjs`**: drives a scripted guided tour (dashboard -> spending -> imports -> investing -> workspace/master config) with on-screen captions and records it as a video via Playwright's `chromium` launcher. Run after the demo-enabled stack is up:
+  ```bash
+  node scripts/record-demo.mjs [output-dir]
+  ```
+
+---
+
 ## Test Coverage
 
-- **`e2e/auth.spec.ts`**: Registration, login, automatic sidebar category provisioning, protected routes redirection, and session logout.
-- **`e2e/spending-guardrails.spec.ts`**: Category creation, budget setting, logging breacheable expense transaction (95%), triggering backend guardrail evaluation task, and verifying the todo alert generation.
+- **`e2e/auth.spec.ts`** `@smoke`: Registration, login, automatic sidebar category provisioning, protected routes redirection, and session logout.
+- **`e2e/spending-guardrails.spec.ts`** `@smoke`: Category creation, budget setting, logging breacheable expense transaction (95%), triggering backend guardrail evaluation task, and verifying the todo alert generation.
 - **`e2e/spending-recurring.spec.ts`**: Recurring spending rule creation/edit/deactivation and scheduler-driven recurring transaction generation verification.
 - **`e2e/investing-fx.spec.ts`**: Multi-currency brokerage accounts creation (GBP & USD), holding asset creation, setting reporting currency (USD), checking valuation, and look-through exposure analytics.
+- **`e2e/investing-orders.spec.ts`**: Buy/sell order placement, weighted-average cost basis, realized gain/loss, FIFO lot consumption across buys, insufficient-cash rejection, order deletion/recompute, trade history, and transfer-triggered cash entries.
 - **`e2e/runtime-header-master-config.spec.ts`**: Global header verification (notification icon + logout) and Master Configuration edit actions for accounts and categories.
-- **`e2e/exports.spec.ts`**: JSON and CSV/Zip data export requests, status polling, and download integrity verification.
+- **`e2e/exports.spec.ts`** `@smoke`: JSON and CSV/Zip data export requests, status polling, and download integrity verification.
+- **`e2e/imports-smoke.spec.ts`** `@smoke`: Import validation and commit for a spending import, plus rolling back a completed import from the UI.
+- **`e2e/rbac.spec.ts`** `@rbac`: Role-based access enforcement — VIEWER blocked from creating transactions/modifying finance settings, MEMBER can create/read todos, OWNER can modify workspace finance settings.
+- **`e2e/workspace-isolation.spec.ts`**: Switching visible workspace data and blocking cross-workspace todo/spending lookups.
+- **`e2e/capture.spec.ts`**: Voice agent widget/capture flow — VIEWER blocked from the WebSocket, MEMBER connects and submits text triggering mock success events, and error-event display.
+- **`e2e/todo-smoke.spec.ts`** `@smoke`: Creating a timed todo for today and completing it.
+- **`e2e/transfer-flow.spec.ts`**: Same-currency and cross-currency transfer creation, and rejection of invalid transfer arithmetic.
+- **`e2e/app-shell-responsive.spec.ts`**: Tablet navigation, profile menu, notifications, and logout in the responsive app shell.
+- **`e2e/finance-display-settings.spec.ts`**: Workspace currency-code display followed by a user-level symbol override applied to dashboard totals.
+- **`e2e/guided-empty-states.spec.ts`**: First-run empty states and primary actions across core modules.
+- **`e2e/keyboard-accessibility.spec.ts`**: Keyboard-only navigation through the sidebar, Todo creation/completion, and the Spending category modal.
+- **`e2e/notifications-summaries.spec.ts`**: Weekly summary notification rendering/read-state, and notification/summary isolation across workspace switches.
