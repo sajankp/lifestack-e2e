@@ -37,8 +37,8 @@ env vars above and gate on `precheck` (verifies the stack is actually up
 before spending time on a doomed run):
 
 ```bash
-npm run test:smoke   # @smoke-tagged subset only, assumes stack is already running + env vars set
-npm run test:full    # full suite, assumes stack is already running + env vars set
+npm run test:smoke        # @smoke-tagged subset only, assumes stack is already running + env vars set
+npm run test:full         # full suite, assumes stack is already running + env vars set
 npm run test:local        # full suite against the standard local ports (sets env vars for you)
 npm run test:local:smoke  # @smoke subset against the standard local ports
 npm run test:smoke:stack  # brings the stack up, runs @smoke, tears it down
@@ -84,7 +84,7 @@ Two additional pieces of tooling support recording a reviewer-facing demo video,
 ## Test Coverage
 
 - **`e2e/auth.spec.ts`** `@smoke`: Registration, login, automatic sidebar category provisioning, protected routes redirection, and session logout.
-- **`e2e/spending-guardrails.spec.ts`** `@smoke`: Category creation, budget setting, logging breacheable expense transaction (95%), triggering backend guardrail evaluation task, and verifying the todo alert generation.
+- **`e2e/spending-guardrails.spec.ts`** `@smoke`: Category creation, budget setting, logging breachable expense transaction (95%), triggering backend guardrail evaluation task, and verifying the todo alert generation.
 - **`e2e/spending-recurring.spec.ts`**: Recurring spending rule creation/edit/deactivation and scheduler-driven recurring transaction generation verification.
 - **`e2e/investing-fx.spec.ts`**: Multi-currency brokerage accounts creation (GBP & USD), holding asset creation, setting reporting currency (USD), checking valuation, and look-through exposure analytics.
 - **`e2e/investing-orders.spec.ts`**: Buy/sell order placement, weighted-average cost basis, realized gain/loss, FIFO lot consumption across buys, insufficient-cash rejection, order deletion/recompute, trade history, and transfer-triggered cash entries.
