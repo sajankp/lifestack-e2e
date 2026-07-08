@@ -32,10 +32,10 @@ test.describe('Responsive App Shell E2E Flow', () => {
     // Logout now lives inside the profile dropdown (the standalone header
     // logout icon was removed in favor of a single logout entry point).
     await page.getByTestId('header-profile-menu').click();
-    await expect(page.getByText('Settings', { exact: true })).toBeVisible();
+    await expect(page.getByRole('group').getByRole('link', { name: 'Settings' })).toBeVisible();
     await expect(page.getByText('Signed In', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Logout' })).toBeVisible();
-    await page.keyboard.press('Escape');
+    await expect(page.getByRole('group').getByRole('button', { name: 'Logout' })).toBeVisible();
+    await page.getByTestId('header-profile-menu').click();
 
     await page.getByTestId('nav-mobile-open').click();
     await expect(page.getByLabel('Mobile navigation')).toContainText('Workspace');
@@ -45,7 +45,7 @@ test.describe('Responsive App Shell E2E Flow', () => {
     await expect(page.getByLabel('Mobile navigation')).toHaveClass(/-translate-x-full/);
 
     await page.getByTestId('header-profile-menu').click();
-    await page.getByRole('button', { name: 'Logout' }).click();
+    await page.getByRole('group').getByRole('button', { name: 'Logout' }).click();
     await expect(page).toHaveURL(/.*\/login/);
   });
 });

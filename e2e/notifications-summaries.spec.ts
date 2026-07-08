@@ -184,7 +184,7 @@ test.describe('Notifications and Weekly Summaries E2E Flow', () => {
 
     await page.getByTestId('nav-dashboard').click();
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
-    await expect(page.getByText('Latest weekly summary')).toBeVisible();
+
   });
 
   test('keeps notifications and weekly summaries isolated when switching workspaces', async ({

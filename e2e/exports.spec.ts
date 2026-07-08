@@ -129,6 +129,7 @@ test.describe('Data Export Module E2E Flow', () => {
         response.request().method() === 'DELETE',
     );
     await page.getByTestId('exports-delete').click();
+    await page.getByRole('button', { name: 'Delete', exact: true }).click();
     const deleteResponse = await deleteResponsePromise;
     expect(deleteResponse.status()).toBe(204);
 

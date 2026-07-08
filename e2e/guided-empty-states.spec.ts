@@ -17,10 +17,9 @@ test.describe('Guided Empty States E2E Flow', () => {
 
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByText('Open todos')).toBeVisible();
-    await expect(page.getByText('Budget remaining')).toBeVisible();
-    await expect(page.getByText('Based on current month budget')).toBeVisible();
-    await expect(page.getByText('Latest weekly summary')).toBeVisible();
-    await expect(page.getByText('Summary status')).toBeVisible();
+    await expect(page.getByText('This month spent')).toBeVisible();
+    await expect(page.getByText('No group budgets set')).toBeVisible();
+
 
     await page.getByTestId('nav-todo').click();
     await expect(page.getByRole('heading', { name: 'Todos' })).toBeVisible();

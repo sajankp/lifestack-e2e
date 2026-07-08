@@ -63,7 +63,7 @@ async function registerViaApi(
   expect([200, 201], `Register failed: ${await res.text()}`).toContain(res.status());
   
   await loginViaApi(request, creds.email, creds.password);
-
+ 
   const meRes = await retryUnauthorized(() => request.get(`${API_BASE}/auth/me`));
   expect(meRes.status()).toBe(200);
   const meBody = (await meRes.json()) as { public_id: string };
@@ -107,6 +107,11 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await expect(page.locator('#voice-agent-trigger')).toBeVisible({ timeout: 10_000 });
     await page.locator('#voice-agent-trigger').click();
 
+    // Trigger lazy WS connection by focusing the input
+    const input = page.locator('input[placeholder*="Type a message"]');
+    await expect(input).toBeVisible();
+    await input.focus();
+
     // The backend should immediately close the WebSocket with ForbiddenError (handshake reject yields 1006 in browser)
     await expect(page.getByText('Session closed (1006).')).toBeVisible({ timeout: 10000 });
   });
@@ -119,7 +124,12 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await expect(page.locator('#voice-agent-trigger')).toBeVisible({ timeout: 10_000 });
     await page.locator('#voice-agent-trigger').click();
 
-    await expect(page.getByText('Connected. Tap the microphone to talk.')).toBeVisible({
+    // Trigger lazy WS connection by focusing the input
+    const input = page.locator('input[placeholder*="Type a message"]');
+    await expect(input).toBeVisible();
+    await input.focus();
+
+    await expect(page.getByText('Connected. Tap the microphone to talk or type a message.')).toBeVisible({
       timeout: 10000,
     });
   });
@@ -193,7 +203,12 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
                     type: 'tool_response',
                     name: 'create_todo_task',
                     status: 'success',
-                    result: { status: 'success', message: 'Task created' }
+                    result: {
+                      status: 'success',
+                      entity_type: 'todo',
+                      entity_public_id: 'abc-123-uuid',
+                      summary: `Added todo '${parsed.content}'`
+                    }
                   });
                 }, 500);
               }
@@ -223,12 +238,15 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.locator('#voice-agent-trigger').click();
 
-    // Verify widget opened and mocked connection is established
-    await expect(page.getByText('Connected. Tap the microphone to talk.')).toBeVisible();
-
-    // Send fallback message
+    // Trigger lazy WS connection by focusing the input
     const input = page.locator('input[placeholder*="Type a message"]');
     await expect(input).toBeVisible();
+    await input.focus();
+
+    // Verify widget opened and mocked connection is established
+    await expect(page.getByText('Connected. Tap the microphone to talk or type a message.')).toBeVisible();
+
+    // Send fallback message
     await input.fill('Write E2E test task');
     await input.press('Enter');
 
@@ -238,9 +256,14 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     // Assert agent transcript response is rendered
     await expect(page.getByText('Creating a todo task for you.')).toBeVisible();
 
-    // Assert tool execution and success events are rendered in logs
-    await expect(page.getByText('Voice agent is running create_todo_task...')).toBeVisible();
-    await expect(page.getByText('Executed create_todo_task successfully.')).toBeVisible();
+    // Assert confirmation card and link are rendered instead of plain log messages
+    const card = page.getByTestId('confirmation-card');
+    await expect(card).toBeVisible();
+    await expect(card.getByText('Todo', { exact: true })).toBeVisible();
+    await expect(card.getByText("Added todo 'Write E2E test task'")).toBeVisible();
+    const viewLink = card.getByRole('link', { name: 'View →' });
+    await expect(viewLink).toBeVisible();
+    await expect(viewLink).toHaveAttribute('href', '/todo?id=abc-123-uuid');
   });
 
   test('MEMBER receives and displays error event from WebSocket', async ({ page }) => {
@@ -313,6 +336,11 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
 
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.locator('#voice-agent-trigger').click();
+
+    // Trigger lazy WS connection by focusing the input
+    const input = page.locator('input[placeholder*="Type a message"]');
+    await expect(input).toBeVisible();
+    await input.focus();
 
     // Verify custom error message is rendered in the messages panel
     await expect(page.getByText('Mock Voice limit reached')).toBeVisible({ timeout: 5000 });
