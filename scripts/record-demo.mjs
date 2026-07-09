@@ -78,10 +78,8 @@ async function seedDemoData(context) {
   if (!workspace) throw new Error('No workspace found for demo user');
 
   await apiCall(context, 'POST', `/platform/workspaces/${workspace.public_id}/reset-demo`);
-
-  // Multi-currency workspace (USD + EUR cash) needs a reporting currency or
-  // performance snapshots 422 and the investing/dashboard tiles show N/A.
-  await apiCall(context, 'PATCH', '/finance/settings', { reporting_currency_code: 'USD' });
+  // Reporting currency is set by the reset itself (lifestack-api #117) —
+  // no PATCH /finance/settings workaround needed here anymore.
 
   const categories = await apiCall(context, 'GET', '/spending/categories?limit=50');
   const cat = Object.fromEntries((categories.items || []).map((c) => [c.name.toLowerCase(), c.public_id]));
@@ -122,7 +120,7 @@ async function seedDemoData(context) {
     await apiCall(context, 'POST', '/spending/budgets', {
       category_id: cat.entertainment,
       amount: 120,
-      month_start: monthStart(),
+      start_month: monthStart(),
     });
   }
 
@@ -283,13 +281,15 @@ async function smoothScroll(page, to, ms = 1600) {
 async function makeImportCsv(categories) {
   const other = categories.other;
   const food = categories.food;
+  // account_name resolves each row to the seeded "wallet" account by name —
+  // target_account_id is optional in the UI now, so we skip that dropdown.
   const rows = [
-    'occurred_at,type,amount,category,description',
-    `${daysAgo(1)},expense,18.20,${food},Card statement — cafe`,
-    `${daysAgo(2)},expense,54.10,${food},Card statement — supermarket`,
-    `${daysAgo(2)},expense,9.99,${other},Card statement — app subscription`,
-    `${daysAgo(4)},expense,33.00,${other},Card statement — pharmacy`,
-    `${daysAgo(5)},expense,72.45,${food},Card statement — restaurant`,
+    'occurred_at,type,amount,category,description,account_name',
+    `${daysAgo(1)},expense,18.20,${food},Card statement — cafe,wallet`,
+    `${daysAgo(2)},expense,54.10,${food},Card statement — supermarket,wallet`,
+    `${daysAgo(2)},expense,9.99,${other},Card statement — app subscription,wallet`,
+    `${daysAgo(4)},expense,33.00,${other},Card statement — pharmacy,wallet`,
+    `${daysAgo(5)},expense,72.45,${food},Card statement — restaurant,wallet`,
   ];
   const csvPath = path.join(OUT_DIR, 'demo-import.csv');
   await fs.writeFile(csvPath, rows.join('\n'), 'utf8');
@@ -347,8 +347,6 @@ async function recordTour(browser, storageState, categories) {
   const csvPath = await makeImportCsv(categories);
   await page.getByRole('button', { name: 'New Import' }).click();
   await page.getByTestId('imports-module-select').selectOption('spending-transactions');
-  await page.getByTestId('imports-target-account').click();
-  await page.getByRole('option', { name: 'wallet (wallet)', exact: true }).click();
   await page.getByTestId('imports-file-input').setInputFiles(csvPath);
   await page.waitForTimeout(800);
   await page.getByTestId('imports-upload-validate').click();
@@ -359,19 +357,23 @@ async function recordTour(browser, storageState, categories) {
 
   // --- 4. Investing ---
   await page.goto(`${WEB}/investing`, { waitUntil: 'networkidle' });
-  await showCaption(page, 'Investing', 'Account-backed holdings, cash in USD and EUR, FX-aware valuation, performance.');
+  await showCaption(page, 'Investing', 'Account-backed holdings, real orders, cash in USD and EUR, FX-aware valuation.');
   await page.waitForTimeout(3200);
   await smoothScroll(page, 650, 1600);
-  await page.waitForTimeout(2200);
+  await page.waitForTimeout(2000);
   await smoothScroll(page, 0, 1000);
+  await page.getByTestId('investing-tab-orders').click();
+  await page.waitForTimeout(2600);
   await page.getByTestId('investing-tab-cash').click();
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(2600);
   await hideCaption(page);
 
-  // --- 5. Workspace / master config ---
+  // --- 5. Workspace / settings ---
   await page.goto(`${WEB}/settings`, { waitUntil: 'networkidle' });
   await showCaption(page, 'Workspaces & RBAC', 'Multi-tenant workspaces with roles, audit logging, and a safe demo reset.');
-  await page.waitForTimeout(2500);
+  await page.waitForTimeout(2200);
+  await page.getByTestId('settings-tab-danger').click();
+  await page.waitForTimeout(1000);
   const resetSection = page.getByTestId('master-demo-reset-section');
   if (await resetSection.count()) {
     await resetSection.scrollIntoViewIfNeeded();
@@ -390,7 +392,7 @@ async function recordTour(browser, storageState, categories) {
      <ul>
        <li><b>80% / 70%</b> enforced coverage gates (API / web)</li>
        <li><b>18</b> Playwright end-to-end suites against a Dockerized stack</li>
-       <li><b>59</b> approved specs — spec-driven development, protected main</li>
+       <li><b>68</b> approved specs — spec-driven development, protected main</li>
      </ul>`,
     4500,
   );
