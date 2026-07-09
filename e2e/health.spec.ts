@@ -56,21 +56,52 @@ test.describe('Health Memory Flow', () => {
     page,
   }) => {
     const medName = `Smoke Med ${Date.now()}`;
-    const yesterday = new Date();
-    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-    const anchorDate = yesterday.toISOString().slice(0, 10);
+    const utcHour = new Date().getUTCHours();
+    let offset = 12 - utcHour;
+    if (offset < -11) offset += 24;
+    if (offset > 12) offset -= 24;
 
-    // Using yesterday as the anchor date with a single late slot (23:59 UTC)
-    // guarantees exactly one missed slot (yesterday's) and one pending slot (today's),
-    // eliminating any time-of-day flakiness.
+    const timezones: Record<number, string> = {
+      [-11]: 'Pacific/Midway',
+      [-10]: 'Pacific/Honolulu',
+      [-9]: 'America/Anchorage',
+      [-8]: 'America/Los_Angeles',
+      [-7]: 'America/Denver',
+      [-6]: 'America/Chicago',
+      [-5]: 'America/New_York',
+      [-4]: 'America/Halifax',
+      [-3]: 'America/Argentina/Buenos_Aires',
+      [-2]: 'America/Noronha',
+      [-1]: 'Atlantic/Cape_Verde',
+      [0]: 'UTC',
+      [1]: 'Africa/Lagos',
+      [2]: 'Africa/Johannesburg',
+      [3]: 'Asia/Riyadh',
+      [4]: 'Asia/Dubai',
+      [5]: 'Asia/Karachi',
+      [6]: 'Asia/Dhaka',
+      [7]: 'Asia/Bangkok',
+      [8]: 'Asia/Singapore',
+      [9]: 'Asia/Tokyo',
+      [10]: 'Australia/Sydney',
+      [11]: 'Pacific/Guadalcanal',
+      [12]: 'Pacific/Auckland',
+    };
+    const tz = timezones[offset] || 'UTC';
+    const anchorDate = new Date().toLocaleDateString('en-CA', { timeZone: tz });
+
+    // We choose a timezone where the current time is exactly 12:00 PM (noon).
+    // This allows us to set one slot 6 hours in the past (06:00, which is missed)
+    // and one slot 6 hours in the future (18:00, which is pending) on the same date,
+    // making the test completely robust against the time of day.
     const medication = await createMedicationViaApi(page, {
       name: medName,
       dose_text: '1 tablet',
       frequency: 'daily',
       interval: 1,
       anchor_date: anchorDate,
-      timezone: 'UTC',
-      times: ['23:59'],
+      timezone: tz,
+      times: ['06:00', '18:00'],
     });
 
     await page.getByTestId('nav-health').click();
