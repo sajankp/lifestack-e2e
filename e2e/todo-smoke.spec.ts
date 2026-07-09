@@ -21,6 +21,12 @@ async function csrfHeaders(page: Page) {
   };
 }
 
+function waitForTodoWrite(page: Page, method: 'POST' | 'PATCH') {
+  return page.waitForResponse(
+    (res) => res.url().includes('/v1/todo/') && res.request().method() === method,
+  );
+}
+
 async function createTodoViaApi(
   page: Page,
   data: Record<string, unknown>,
@@ -96,7 +102,9 @@ test.describe('Todo Smoke Flow', () => {
 
     await page.getByRole('button', { name: 'Add Task' }).click();
     await page.getByTestId('todo-new-title').fill(parentTitle);
+    const createParent = waitForTodoWrite(page, 'POST');
     await page.getByTestId('todo-new-submit').click();
+    await createParent;
     await expect(page.getByRole('heading', { name: parentTitle })).toBeVisible();
 
     const parentRow = page.getByTestId(/^todo-item-/).filter({ hasText: parentTitle });
@@ -105,22 +113,30 @@ test.describe('Todo Smoke Flow', () => {
     await addSubtaskButton.click();
     await expect(page.getByRole('heading', { name: `New subtask for "${parentTitle}"` })).toBeVisible();
     await page.getByTestId('todo-new-title').fill('Book flights');
+    const createChildOne = waitForTodoWrite(page, 'POST');
     await page.getByTestId('todo-new-submit').click();
+    await createChildOne;
     await expect(page.getByRole('heading', { name: 'Book flights' })).toBeVisible();
 
     await addSubtaskButton.click();
     await page.getByTestId('todo-new-title').fill('Pack bags');
+    const createChildTwo = waitForTodoWrite(page, 'POST');
     await page.getByTestId('todo-new-submit').click();
+    await createChildTwo;
     await expect(page.getByRole('heading', { name: 'Pack bags' })).toBeVisible();
 
     await expect(parentRow.getByText('0/2', { exact: true })).toBeVisible();
 
+    const completeChildOne = waitForTodoWrite(page, 'PATCH');
     await page.getByRole('button', { name: 'Mark todo as complete: Book flights' }).click();
+    await completeChildOne;
     await expect(parentRow.getByText('1/2', { exact: true })).toBeVisible();
 
     // Completing the parent cascades to its remaining open subtask and moves
     // the whole (now fully-completed) group out of the open view (spec-068).
+    const completeParent = waitForTodoWrite(page, 'PATCH');
     await page.getByRole('button', { name: `Mark todo as complete: ${parentTitle}` }).click();
+    await completeParent;
     await expect(page.getByRole('heading', { name: parentTitle })).not.toBeVisible();
 
     await page.getByTestId('todo-completed-toggle').click();
