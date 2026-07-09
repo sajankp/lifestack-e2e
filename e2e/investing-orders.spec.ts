@@ -138,8 +138,7 @@ test.describe('Investing Orders E2E Flow', () => {
     await page.getByTestId('nav-investing').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
 
-    await page.getByTestId('investing-tab-cash').click();
-    await page.getByTestId('investing-place-order-btn').click();
+    await page.getByTestId('investing-hero-place-order').click();
 
     // Fill the order form
     await page.getByTestId('order-account-select').click();
@@ -161,6 +160,7 @@ test.describe('Investing Orders E2E Flow', () => {
     expect(orderRes.ok()).toBeTruthy();
 
     // Verify order appears in the orders table
+    await page.getByTestId('investing-tab-orders').click();
     await expect(page.getByTestId('investing-orders-table')).toBeVisible();
     await expect(page.getByTestId('investing-orders-table')).toContainText('AAPL');
     await expect(page.getByTestId('investing-orders-table')).toContainText(/buy/i);
@@ -183,8 +183,13 @@ test.describe('Investing Orders E2E Flow', () => {
 
     // Place second buy via UI
     await page.getByTestId('nav-investing').click();
-    await page.getByTestId('investing-tab-cash').click();
-    await page.getByTestId('investing-place-order-btn').click();
+    await page.getByTestId('investing-hero-place-order').click();
+
+    // The modal auto-selects the first brokerage account once the accounts
+    // query resolves; wait for that before filling the rest of the form (the
+    // hero button — unlike the old Cash-tab button — can be clicked before
+    // that query settles, since it no longer requires a tab switch first).
+    await expect(page.getByTestId('order-account-select')).toContainText(brokerageAccount.name);
 
     await page.getByTestId('order-symbol').fill('AAPL');
     await page.getByTestId('order-quantity').fill('5');
@@ -219,8 +224,11 @@ test.describe('Investing Orders E2E Flow', () => {
     });
 
     await page.getByTestId('nav-investing').click();
-    await page.getByTestId('investing-tab-cash').click();
-    await page.getByTestId('investing-place-order-btn').click();
+    await page.getByTestId('investing-hero-place-order').click();
+
+    // Wait for the modal's auto-selected default account (see the comment in
+    // the previous test) before interacting with the rest of the form.
+    await expect(page.getByTestId('order-account-select')).toContainText(brokerageAccount.name);
 
     // Toggle to sell
     await page.getByTestId('order-type-toggle').getByText('Sell').click();
@@ -235,6 +243,7 @@ test.describe('Investing Orders E2E Flow', () => {
     await orderPromise;
 
     // Verify realized gain/loss = 3 × (180 - 150) = $90
+    await page.getByTestId('investing-tab-orders').click();
     await expect(page.getByTestId('investing-orders-table')).toContainText('90');
 
     // Holdings: qty=7, avg_cost still $150
@@ -283,7 +292,7 @@ test.describe('Investing Orders E2E Flow', () => {
     });
 
     await page.getByTestId('nav-investing').click();
-    await page.getByTestId('investing-tab-cash').click();
+    await page.getByTestId('investing-tab-orders').click();
     await expect(page.getByTestId('investing-orders-table')).toContainText('1,750');
 
     await page.getByTestId('investing-tab-holdings').click();
@@ -298,8 +307,7 @@ test.describe('Investing Orders E2E Flow', () => {
     await transferCash(page, bankAccount.public_id, smallBrokerage.public_id, '100', 'USD');
 
     await page.getByTestId('nav-investing').click();
-    await page.getByTestId('investing-tab-cash').click();
-    await page.getByTestId('investing-place-order-btn').click();
+    await page.getByTestId('investing-hero-place-order').click();
 
     await page.getByTestId('order-account-select').click();
     await page.getByRole('option', { name: smallBrokerage.name }).click();
@@ -341,7 +349,7 @@ test.describe('Investing Orders E2E Flow', () => {
     });
 
     await page.getByTestId('nav-investing').click();
-    await page.getByTestId('investing-tab-cash').click();
+    await page.getByTestId('investing-tab-orders').click();
 
     // Delete the second order — triggers a confirmation dialog
     await page

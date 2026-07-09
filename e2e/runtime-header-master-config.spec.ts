@@ -24,7 +24,9 @@ test.describe('Runtime Header + Master Config Edit Flow', () => {
     await expect(page.getByTestId('header-notifications')).toBeVisible();
     await expect(page.getByTestId('header-profile-menu')).toBeVisible();
 
-    // Open Settings (formerly Master Config) and create an account.
+    // Open Settings (formerly "Master Config") and create an account.
+    // Settings is now tabbed (Currency & Display / Accounts / Categories &
+    // Groups / Danger zone) — jump to the Accounts tab for account fields.
     await page.getByTestId('nav-settings').click();
     await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
     await page.getByTestId('settings-tab-accounts').click();

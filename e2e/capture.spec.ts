@@ -116,7 +116,13 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await expect(page.getByText('Session closed (1006).')).toBeVisible({ timeout: 10000 });
   });
 
-  test('MEMBER can connect to the voice agent session', async ({ page }) => {
+  // The composed e2e stack (docker-compose.e2e.yml) does not provision a
+  // GEMINI_API_KEY, so a real connection attempt always hits the backend's
+  // graceful-degradation path (app/capture/agent.py run_agent_session) rather
+  // than actually reaching Gemini. That path is itself real, deterministic
+  // behavior worth asserting on — this is not the mocked-WebSocket path used
+  // by the other tests in this file.
+  test('MEMBER sees a graceful error when the voice provider is unavailable', async ({ page }) => {
     const memberCreds = makeCredentials('member');
     await registerViaApi(page.request, memberCreds);
 
@@ -129,9 +135,16 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await expect(input).toBeVisible();
     await input.focus();
 
+    // Our own backend accepts the WebSocket (ws.onopen fires, "Connected..."
+    // renders) before it checks for GEMINI_API_KEY — so both messages appear
+    // in sequence: the optimistic "Connected" banner, then the graceful
+    // degradation error once run_agent_session finds no key configured.
     await expect(page.getByText('Connected. Tap the microphone to talk or type a message.')).toBeVisible({
       timeout: 10000,
     });
+    await expect(
+      page.getByText('Voice capture is temporarily unavailable. Please try again.'),
+    ).toBeVisible({ timeout: 10000 });
   });
 
   test('MEMBER can submit text and trigger mock success events', async ({ page }) => {
@@ -197,7 +210,10 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
                   });
                 }, 300);
 
-                // Mock tool call success response
+                // Mock tool call success response — spec-066's confirmation-card
+                // contract: entity_type/entity_public_id/summary drive the card
+                // (see VoiceAgentWidget.tsx CONFIRMATION_CARD_REGISTRY); a bare
+                // success with no entity_type renders no card at all.
                 setTimeout(() => {
                   this.triggerMessage({
                     type: 'tool_response',

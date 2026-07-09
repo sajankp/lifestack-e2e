@@ -1,12 +1,40 @@
 name: CI Pipeline
 
+# e2e-tests job (Task 4 — gate the e2e suite in CI):
+#   - pull_request: runs only the @smoke-tagged subset (fast signal on every PR)
+#   - push to main / nightly cron / manual dispatch: runs the full suite
+#   - retries=1 is set globally in playwright.config.ts; a test that still
+#     fails after that retry is a real regression, not noise — file a GitHub
+#     issue and mark the spec with a TODO rather than adding more retries.
+#   - Playwright HTML report + traces are uploaded as artifacts on failure.
+#
+# Cross-repo trigger: lifestack-api and lifestack-web do NOT yet dispatch into
+# this workflow on their own pushes to main — wiring a repository_dispatch
+# from those repos requires a personal-access-token secret this workflow
+# doesn't have visibility into, so that's left as a documented gap (see
+# README.md "CI" section) rather than a guessed, silently-broken hookup.
+# Interim: workflow_dispatch below covers on-demand runs after an api/web
+# merge; nightly cron is the backstop that catches drift within 24h either way.
+
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 3 * * *' # nightly full run, 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: 'Which suite to run'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - smoke
+          - full
 
 jobs:
   dependency-audit:
@@ -93,10 +121,21 @@ jobs:
           docker compose -f lifestack-e2e/docker-compose.e2e.yml logs
           exit 1
 
+      - name: Determine suite
+        id: suite
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "npm_script=test:local:smoke" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.suite }}" = "smoke" ]; then
+            echo "npm_script=test:local:smoke" >> "$GITHUB_OUTPUT"
+          else
+            echo "npm_script=test:local" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run E2E tests
         run: |
           cd lifestack-e2e
-          npm run test:local
+          npm run ${{ steps.suite.outputs.npm_script }}
 
       - name: Stop Docker Compose Stack
         if: always()
@@ -106,9 +145,10 @@ jobs:
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
-        if: always()
+        if: failure()
         with:
           name: playwright-report
-          path: lifestack-e2e/playwright-report/
+          path: |
+            lifestack-e2e/playwright-report/
+            lifestack-e2e/test-results/
           retention-days: 30
-

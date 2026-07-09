@@ -18,8 +18,8 @@ test.describe('Guided Empty States E2E Flow', () => {
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByText('Open todos')).toBeVisible();
     await expect(page.getByText('This month spent')).toBeVisible();
+    await expect(page.getByText('Portfolio value')).toBeVisible();
     await expect(page.getByText('No group budgets set')).toBeVisible();
-
 
     await page.getByTestId('nav-todo').click();
     await expect(page.getByRole('heading', { name: 'Todos' })).toBeVisible();
@@ -38,8 +38,10 @@ test.describe('Guided Empty States E2E Flow', () => {
     await page.getByTestId('spending-tab-recurring').click();
     await expect(page.getByText('No recurring rules yet')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Add First Rule' })).toBeVisible();
-    await page.getByTestId('spending-tab-transfers').click();
-    await expect(page.getByText('No transfers yet')).toBeVisible();
+    // "Transfers" was merged into "Account activity" (formerly Ledger); with
+    // no account created yet, it prompts to pick one rather than listing rows.
+    await page.getByTestId('spending-tab-ledger').click();
+    await expect(page.getByText('Select an account')).toBeVisible();
 
     await page.getByTestId('nav-investing').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
@@ -64,7 +66,7 @@ test.describe('Guided Empty States E2E Flow', () => {
     await page.getByTestId('header-notifications').click();
     await expect(page.getByRole('heading', { name: 'Notifications', exact: true })).toBeVisible();
     await expect(page.getByText('No notifications yet')).toBeVisible();
-    // Devices moved under the "Preferences & Devices" tab.
+    // Preferences + Devices moved behind a secondary tab (inbox-first reorder).
     await page.getByTestId('notifications-tab-settings').click();
     await expect(page.getByRole('button', { name: 'Enable on this device' })).toBeVisible();
 
