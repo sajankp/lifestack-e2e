@@ -81,6 +81,39 @@ Two additional pieces of tooling support recording a reviewer-facing demo video,
 
 ---
 
+## CI
+
+`.github/workflows/ci.yml` runs two jobs on every push/PR to `main`: a
+dependency/secret-scan job, and `e2e-tests`, which composes the same stack
+described above (`docker-compose.e2e.yml`, building `lifestack-api` and
+`lifestack-web` from their `main` branches as sibling checkouts) and runs the
+suite against it.
+
+**What runs when:**
+- **Pull requests**: `npm run test:local:smoke` — the `@smoke`-tagged subset only, for fast PR feedback.
+- **Push to `main`**, the **nightly cron** (03:00 UTC), and manual **`workflow_dispatch`** (default `full`, or pick `smoke`): `npm run test:local` — the full suite.
+
+**Flakiness budget**: `playwright.config.ts` sets `retries: 1` globally. A
+spec that still fails after that retry in CI is a real regression, not noise —
+file a GitHub issue and leave a `// TODO(#issue): ...` comment on the spec
+rather than adding more retries or skipping it silently.
+
+**Artifacts**: on failure, the Playwright HTML report (`playwright-report/`)
+and raw `test-results/` (screenshots + traces) are uploaded as the
+`playwright-report` artifact. Open the HTML report locally with
+`npx playwright show-report path/to/downloaded/playwright-report`, or a
+specific trace with `npx playwright show-trace path/to/trace.zip`.
+
+**Cross-repo triggering — known gap**: `lifestack-api` and `lifestack-web`'s
+own CI workflows do not currently dispatch a run of this workflow when they
+merge to `main`. Wiring that (via `repository_dispatch` or `workflow_call`)
+needs a personal-access-token secret scoped across repos that this workflow
+doesn't have visibility into, so it's left undone rather than guessed at. In
+the meantime: the nightly cron catches drift within 24h, and `workflow_dispatch`
+lets you trigger a run on demand right after an api/web merge lands.
+
+---
+
 ## Test Coverage
 
 - **`e2e/auth.spec.ts`** `@smoke`: Registration, login, automatic sidebar category provisioning, protected routes redirection, and session logout.
@@ -88,7 +121,7 @@ Two additional pieces of tooling support recording a reviewer-facing demo video,
 - **`e2e/spending-recurring.spec.ts`**: Recurring spending rule creation/edit/deactivation and scheduler-driven recurring transaction generation verification.
 - **`e2e/investing-fx.spec.ts`**: Multi-currency brokerage accounts creation (GBP & USD), holding asset creation, setting reporting currency (USD), checking valuation, and look-through exposure analytics.
 - **`e2e/investing-orders.spec.ts`**: Buy/sell order placement, weighted-average cost basis, realized gain/loss, FIFO lot consumption across buys, insufficient-cash rejection, order deletion/recompute, trade history, and transfer-triggered cash entries.
-- **`e2e/runtime-header-master-config.spec.ts`**: Global header verification (notification icon + logout) and Master Configuration edit actions for accounts and categories.
+- **`e2e/runtime-header-master-config.spec.ts`**: Global header verification (notifications + profile menu) and Settings edit actions for accounts and categories.
 - **`e2e/exports.spec.ts`** `@smoke`: JSON and CSV/Zip data export requests, status polling, and download integrity verification.
 - **`e2e/imports-smoke.spec.ts`** `@smoke`: Import validation and commit for a spending import, plus rolling back a completed import from the UI.
 - **`e2e/rbac.spec.ts`** `@rbac`: Role-based access enforcement — VIEWER blocked from creating transactions/modifying finance settings, MEMBER can create/read todos, OWNER can modify workspace finance settings.

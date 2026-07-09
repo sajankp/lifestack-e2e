@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { test, expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 
 const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
@@ -62,7 +62,10 @@ async function submitTransfer(
     tax?: string;
   },
 ) {
-  await page.getByRole('button', { name: 'Transfer', exact: true }).click();
+  // Two "Transfer" triggers can coexist: the page-level hero action (always
+  // mounted, first in DOM order) and the Account activity tab's local one
+  // (only mounted while that tab is active) — pin to the hero button.
+  await page.getByRole('button', { name: 'Transfer', exact: true }).first().click();
   const modal = page.locator('.fixed').filter({ hasText: 'Transfer Between Wallets/Accounts' });
   await expect(modal.getByText('Transfer Between Wallets/Accounts')).toBeVisible();
 
@@ -72,6 +75,11 @@ async function submitTransfer(
   const numberInputs = modal.getByRole('spinbutton');
   await numberInputs.nth(0).fill(amount);
 
+  // FX rate / fees live behind the "Add fees / cross-currency" disclosure —
+  // it must be opened before those inputs are interactable.
+  if (extras?.fxRate || extras?.fxFee || extras?.platformFee || extras?.tax) {
+    await modal.getByText('Add fees / cross-currency').click();
+  }
   if (extras?.fxRate) {
     await numberInputs.nth(1).fill(extras.fxRate);
   }
@@ -98,11 +106,28 @@ async function submitTransfer(
   await expect(modal).toHaveCount(0);
 }
 
-async function expectTransferRow(row: Locator, expectedTexts: string[]) {
+/**
+ * "Transfers" was merged into Spending's "Account activity" tab (formerly
+ * Ledger — see web#94). That view is scoped to ONE account at a time and
+ * shows only the transfer's own note/amount/direction — not the
+ * counterparty account name, module, FX rate, or fee metadata (all of that
+ * was deliberately dropped from the row per UX-REVIEW item 6).
+ */
+async function selectLedgerAccount(page: Page, accountLabel: string): Promise<void> {
+  await page.getByTestId('spending-tab-ledger').click();
+  await page.getByTestId('ledger-account-select').selectOption({ label: accountLabel });
+}
+
+async function expectLedgerTransferRow(
+  page: Page,
+  notes: string,
+  direction: 'Out' | 'In',
+  amountText: string,
+): Promise<void> {
+  const row = page.locator('tbody tr').filter({ hasText: notes });
   await expect(row).toBeVisible();
-  for (const text of expectedTexts) {
-    await expect(row).toContainText(text);
-  }
+  await expect(row).toContainText(direction === 'Out' ? `Transfer → ${notes}` : `Transfer ← ${notes}`);
+  await expect(row).toContainText(amountText);
 }
 
 test.describe('Transfer Flow E2E', () => {
@@ -136,30 +161,20 @@ test.describe('Transfer Flow E2E', () => {
     await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
 
     await submitTransfer(page, usdSourceLabel, usdTargetLabel, '125.00', sameCurrencyNote);
-    await page.getByTestId('spending-tab-transfers').click();
-    await expectTransferRow(page.locator('tbody tr').filter({ hasText: sameCurrencyNote }), [
-      authedUsdSource.name,
-      authedUsdTarget.name,
-      'spending',
-      '$125.00',
-      sameCurrencyNote,
-    ]);
+    await selectLedgerAccount(page, usdSourceLabel);
+    await expectLedgerTransferRow(page, sameCurrencyNote, 'Out', '$125.00');
+    await selectLedgerAccount(page, usdTargetLabel);
+    await expectLedgerTransferRow(page, sameCurrencyNote, 'In', '$125.00');
 
     await submitTransfer(page, usdSourceLabel, gbpTargetLabel, '100.00', crossCurrencyNote, {
       fxRate: '0.8',
       fxFee: '1.00',
       platformFee: '2.00',
     });
-    await page.getByTestId('spending-tab-transfers').click();
-    await expectTransferRow(page.locator('tbody tr').filter({ hasText: crossCurrencyNote }), [
-      authedUsdSource.name,
-      authedGbpTarget.name,
-      '$100.00',
-      '£77.00',
-      'FX 0.8000000000',
-      'Fees metadata',
-      crossCurrencyNote,
-    ]);
+    await selectLedgerAccount(page, usdSourceLabel);
+    await expectLedgerTransferRow(page, crossCurrencyNote, 'Out', '$100.00');
+    await selectLedgerAccount(page, gbpTargetLabel);
+    await expectLedgerTransferRow(page, crossCurrencyNote, 'In', '£77.00');
 
     const invalidTransfer = await page.request.post(`${API_BASE}/finance/transfers`, {
       headers: await csrfHeaders(page),

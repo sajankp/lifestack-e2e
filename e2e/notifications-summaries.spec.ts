@@ -160,7 +160,7 @@ test.describe('Notifications and Weekly Summaries E2E Flow', () => {
     await page.getByTestId('header-notifications').click();
     await expect(page.getByRole('heading', { name: 'Notifications', exact: true })).toBeVisible();
     await expect(page.getByText(/Weekly summary ready:/)).toBeVisible();
-    await expect(page.getByText('system · info')).toBeVisible();
+    await expect(page.getByText('System · info')).toBeVisible();
 
     await page.getByRole('button', { name: 'Mark all read' }).click();
     await expect.poll(() => unreadCount(page.request)).toBe(0);
@@ -182,9 +182,11 @@ test.describe('Notifications and Weekly Summaries E2E Flow', () => {
       ),
     ).toBeVisible();
 
+    // The standalone "Latest weekly summary" dashboard card was removed in the
+    // UX-REVIEW dashboard restructure (Task 6) — weekly-summary freshness now
+    // surfaces only as a composed Morning Briefing line, not a fixed string.
     await page.getByTestId('nav-dashboard').click();
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
-    await expect(page.getByText('Latest weekly summary')).toBeVisible();
   });
 
   test('keeps notifications and weekly summaries isolated when switching workspaces', async ({

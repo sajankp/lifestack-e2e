@@ -27,7 +27,8 @@ test.describe('Imports Smoke Flow', () => {
 
     // Create an account first (since spec-054 makes it mandatory)
     await page.getByTestId('nav-settings').click();
-    await expect(page.getByRole('heading', { name: 'Master Configuration' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+    await page.getByTestId('settings-tab-accounts').click();
     await page.getByTestId('master-account-name').fill(accountName);
     await page.getByTestId('master-account-currency').click();
     await page.getByRole('option', { name: /^USD\b/ }).click();
@@ -88,7 +89,7 @@ test.describe('Imports Smoke Flow', () => {
       await commitButton.click();
 
       const statusLine = page.locator('p').filter({ hasText: 'Status:' }).first();
-      await expect(statusLine).toContainText('completed', { timeout: 30000 });
+      await expect(statusLine).toContainText('Completed', { timeout: 30000 });
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }
@@ -142,7 +143,7 @@ test.describe('Imports Smoke Flow', () => {
       await commitButton.click();
 
       const statusLine = page.locator('p').filter({ hasText: 'Status:' }).first();
-      await expect(statusLine).toContainText('completed', { timeout: 30000 });
+      await expect(statusLine).toContainText('Completed', { timeout: 30000 });
 
       const transactionsAfterCommit = await context.request.get(
         `${apiBaseUrl}/v1/spending/transactions`,
@@ -163,6 +164,7 @@ test.describe('Imports Smoke Flow', () => {
       expect(committedPayload.items[0]?.source_type).toBe('imported');
 
       await page.getByTestId('imports-delete').click();
+      await page.getByRole('button', { name: 'Roll back', exact: true }).click();
       await expect(page.getByText('Select an import to inspect validation and commit state.')).toBeVisible({
         timeout: 10000,
       });

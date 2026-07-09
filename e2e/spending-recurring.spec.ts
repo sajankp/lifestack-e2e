@@ -45,6 +45,11 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
 
     // Type is expense by default (which we want)
 
+    // The raw schedule fields (frequency/interval/monthly mode) live behind an
+    // "Advanced schedule" disclosure now that the form shows a natural-language
+    // summary by default — expand it before interacting with them.
+    await page.getByText('Advanced schedule').click();
+
     // Frequency: Select Monthly
     await selectFromCombobox(page.getByTestId('spending-recurring-frequency'), 'Monthly');
 

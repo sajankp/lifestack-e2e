@@ -129,6 +129,8 @@ test.describe('Data Export Module E2E Flow', () => {
         response.request().method() === 'DELETE',
     );
     await page.getByTestId('exports-delete').click();
+    // Deletes now go through the shared ConfirmDialog (UX-REVIEW P0 item 1).
+    await page.getByRole('button', { name: 'Delete', exact: true }).click();
     const deleteResponse = await deleteResponsePromise;
     expect(deleteResponse.status()).toBe(204);
 

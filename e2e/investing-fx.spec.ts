@@ -214,11 +214,11 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
 
     await page.getByTestId('nav-investing').click();
 
-    // Navigate to Look-through Analytics tab
+    // Navigate to the Analytics tab
     await page.getByTestId('investing-tab-analytics').click();
 
     // Verify exposure calculations
-    // Look-through analytics use the same reporting-currency conversion:
+    // Analytics uses the same reporting-currency conversion:
     // 1000 GBP * 1.25 + 750 USD = 2000 USD.
     await expect(page.getByTestId('investing-total-direct')).toContainText('$2,000.00');
     await expect(page.getByTestId('investing-total-lookthrough')).toContainText('$2,000.00');

@@ -28,7 +28,7 @@ test.describe('Finance Display Settings E2E Flow', () => {
 
     // Configure workspace display settings in Master Config.
     await page.getByTestId('nav-settings').click();
-    await expect(page.getByRole('heading', { name: 'Master Configuration' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
 
     await page.getByTestId('master-workspace-currency').click();
     await page.getByRole('option', { name: /^USD\b/ }).click();
@@ -44,7 +44,7 @@ test.describe('Finance Display Settings E2E Flow', () => {
 
     // Apply user-level override back to symbol style.
     await page.getByTestId('nav-settings').click();
-    await expect(page.getByRole('heading', { name: 'Master Configuration' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
 
     await page.getByTestId('master-user-currency-override').click();
     await page.getByRole('option', { name: /^USD\b/ }).click();
