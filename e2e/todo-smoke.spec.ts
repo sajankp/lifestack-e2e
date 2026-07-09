@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { registerAndLogin } from './helpers/auth';
+import { retryUnauthorized } from './helpers/api';
 
 const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
 const API_BASE = PLAYWRIGHT_API_URL.endsWith('/v1') ? PLAYWRIGHT_API_URL : `${PLAYWRIGHT_API_URL}/v1`;
@@ -24,10 +25,12 @@ async function createTodoViaApi(
   page: Page,
   data: Record<string, unknown>,
 ): Promise<ApiTodo> {
-  const response = await page.request.post(`${API_BASE}/todo/`, {
-    headers: await csrfHeaders(page),
-    data,
-  });
+  const response = await retryUnauthorized(async () =>
+    page.request.post(`${API_BASE}/todo/`, {
+      headers: await csrfHeaders(page),
+      data,
+    }),
+  );
   expect(response.status(), `Todo creation failed: ${await response.text()}`).toBe(201);
   return (await response.json()) as ApiTodo;
 }
@@ -121,7 +124,14 @@ test.describe('Todo Smoke Flow', () => {
     await expect(page.getByRole('heading', { name: parentTitle })).not.toBeVisible();
 
     await page.getByTestId('todo-completed-toggle').click();
-    await expect(page.getByTestId(/^todo-completed-item-/).filter({ hasText: parentTitle })).toBeVisible();
+    // Match the parent's own row exactly — a loose substring filter also
+    // matches its completed subtasks, which now carry a "↳ Plan trip …"
+    // parent chip since parentTitleById resolves titles from both the open
+    // and completed lists.
+    const escapedParentTitle = parentTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    await expect(
+      page.getByTestId(/^todo-completed-item-/).filter({ hasText: new RegExp(`^${escapedParentTitle}$`) }),
+    ).toBeVisible();
     await expect(page.getByTestId(/^todo-completed-item-/).filter({ hasText: 'Pack bags' })).toBeVisible();
   });
 
