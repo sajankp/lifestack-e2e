@@ -134,3 +134,7 @@ lets you trigger a run on demand right after an api/web merge lands.
 - **`e2e/guided-empty-states.spec.ts`**: First-run empty states and primary actions across core modules.
 - **`e2e/keyboard-accessibility.spec.ts`**: Keyboard-only navigation through the sidebar, Todo creation/completion, and the Spending category modal.
 - **`e2e/notifications-summaries.spec.ts`**: Weekly summary notification rendering/read-state, and notification/summary isolation across workspace switches.
+- **`e2e/spending-kpis.spec.ts`** `@smoke`: Custom financial KPI creation with a target, breach detection against logged spend, surfacing on the dashboard card, and deletion.
+- **`e2e/statement-reconciliation.spec.ts`** `@smoke`: Bank statement CSV import against a wallet account and matching an unmatched statement line to an existing transaction.
+- **`e2e/investing-dividends-corporate-actions.spec.ts`** `@smoke`: Recording and deleting a dividend/income entry, and recording and deleting a stock split corporate action.
+- **`e2e/investing-return-metrics-historical-data.spec.ts`**: Investing return metrics panel (open/exited position toggle) and Net Worth historical-data backfill import + deletion.
