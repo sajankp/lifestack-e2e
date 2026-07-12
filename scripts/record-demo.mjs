@@ -8,8 +8,11 @@
 // Phase 1 (not recorded): register a demo user, run demo reset, seed extra
 // spending/investing data via API, trigger guardrails + weekly summary jobs.
 // Phase 2 (recorded): guided tour with on-screen captions:
-//   dashboard -> spending -> imports (review-before-commit, live) ->
-//   investing -> workspace/master config -> engineering-evidence end card.
+//   dashboard -> spending (budgets/recurring/KPIs/analytics) ->
+//   imports (review-before-commit, live; spending + statement reconciliation) ->
+//   investing (orders/cash+dividends/analytics+concentration) ->
+//   workspace/master config (currency & display, danger zone) ->
+//   engineering-evidence end card.
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -184,6 +187,32 @@ async function seedDemoData(context) {
     }
   }
 
+  // A custom financial KPI (spec-077) so the Spending "KPIs" tab and the
+  // dashboard KPI card have a real target/progress to show. Scoped to the
+  // wallet account: the demo workspace has both USD and EUR accounts, and
+  // an unscoped KPI 422s on mixed-currency spend totals.
+  await apiCall(context, 'POST', '/spending/kpis', {
+    name: 'Monthly spend ceiling',
+    metric_type: 'spend_total',
+    evaluation_window: 'calendar_month',
+    account_id: wallet?.public_id ?? null,
+    target_value: '1200.00',
+    target_direction: 'lte',
+  });
+
+  // A dividend (spec-073) on the brokerage account so the Investing "Cash"
+  // tab's dividend/income section isn't empty.
+  if (brokerage) {
+    await apiCall(context, 'POST', '/investing/dividends', {
+      account_id: brokerage.public_id,
+      symbol: 'GOOGL',
+      gross_amount: '12.50',
+      tax_withheld: '1.25',
+      currency: 'USD',
+      pay_date: daysAgo(5).slice(0, 10),
+    });
+  }
+
   // Background jobs -> guardrail notifications + a fresh weekly summary.
   await apiCall(context, 'POST', '/e2e/workflows/budget-guardrails', {});
   await apiCall(context, 'POST', '/e2e/workflows/weekly-summary', {});
@@ -296,6 +325,19 @@ async function makeImportCsv(categories) {
   return csvPath;
 }
 
+// A bank-statement CSV with one line that matches the seeded "Weekend
+// groceries" transaction (62.40, 3 days ago) so the live reconciliation
+// step (spec-078) has an unmatched line to match against.
+async function makeStatementCsv() {
+  const rows = [
+    'date,description,debit,credit,balance',
+    `${daysAgo(3).slice(0, 10)},Card statement — supermarket,62.40,,`,
+  ];
+  const csvPath = path.join(OUT_DIR, 'demo-statement.csv');
+  await fs.writeFile(csvPath, rows.join('\n'), 'utf8');
+  return csvPath;
+}
+
 async function recordTour(browser, storageState, categories) {
   const context = await browser.newContext({
     viewport: SIZE,
@@ -340,6 +382,16 @@ async function recordTour(browser, storageState, categories) {
   await page.waitForTimeout(2600);
   await hideCaption(page);
 
+  await showCaption(page, 'Custom KPIs', 'User-defined targets on spend, income, or net cash flow — evaluated on a cadence.');
+  await page.getByTestId('spending-tab-kpis').click();
+  await page.waitForTimeout(3200);
+  await hideCaption(page);
+
+  await showCaption(page, 'Analytics', 'Category trends and breakdowns, month by month.');
+  await page.getByTestId('spending-tab-analytics').click();
+  await page.waitForTimeout(2800);
+  await hideCaption(page);
+
   // --- 3. Imports: live review-before-commit ---
   await page.goto(`${WEB}/imports`, { waitUntil: 'networkidle' });
   await showCaption(page, 'Imports', 'Real data comes in through validated imports — previewed before anything commits.');
@@ -355,9 +407,42 @@ async function recordTour(browser, storageState, categories) {
   await page.waitForTimeout(4200);
   await hideCaption(page);
 
+  // --- 3b. Imports: bank statement, for live reconciliation next ---
+  await page.reload({ waitUntil: 'networkidle' });
+  await showCaption(page, 'Statement Reconciliation', 'Bank statements match to existing transactions as metadata — never rewriting the ledger.');
+  const statementPath = await makeStatementCsv();
+  await page.getByRole('button', { name: 'New Import' }).click();
+  await page.getByTestId('imports-module-select').selectOption('finance-account-statement');
+  await page.getByTestId('imports-target-account-statement').click();
+  await page.getByRole('option', { name: 'wallet (wallet)', exact: true }).click();
+  await page.getByTestId('imports-statement-date-format').selectOption('yyyy-MM-dd');
+  await page.getByTestId('imports-file-input').setInputFiles(statementPath);
+  await page.waitForTimeout(800);
+  await page.getByTestId('imports-upload-validate').click();
+  const statementCommit = page.getByTestId('imports-commit');
+  await statementCommit.waitFor({ state: 'visible', timeout: 20_000 });
+  await statementCommit.click();
+  await page.waitForTimeout(2000);
+  await hideCaption(page);
+
+  // --- 3c. Ledger: match the imported statement line live ---
+  await page.goto(`${WEB}/spending`, { waitUntil: 'networkidle' });
+  await page.getByTestId('spending-tab-ledger').click();
+  await showCaption(page, 'Ledger', 'One unmatched statement line — matching it just links it, the transaction itself never changes.');
+  await page.getByTestId('ledger-account-select').selectOption({ label: 'wallet (wallet)' });
+  await page.waitForTimeout(1600);
+  const matchCandidate = page.getByTestId('statement-match-candidate').first();
+  if (await matchCandidate.count()) {
+    await matchCandidate.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(1200);
+    await matchCandidate.click();
+    await page.waitForTimeout(2200);
+  }
+  await hideCaption(page);
+
   // --- 4. Investing ---
   await page.goto(`${WEB}/investing`, { waitUntil: 'networkidle' });
-  await showCaption(page, 'Investing', 'Account-backed holdings, real orders, cash in USD and EUR, FX-aware valuation.');
+  await showCaption(page, 'Investing', 'Account-backed holdings, real orders, XIRR/return metrics, cash in USD and EUR, FX-aware valuation.');
   await page.waitForTimeout(3200);
   await smoothScroll(page, 650, 1600);
   await page.waitForTimeout(2000);
@@ -368,10 +453,23 @@ async function recordTour(browser, storageState, categories) {
   await page.waitForTimeout(2600);
   await hideCaption(page);
 
+  await showCaption(page, 'Analytics', 'Concentration by holding, direct vs. look-through into fund constituents.');
+  await page.getByTestId('investing-tab-analytics').click();
+  await page.waitForTimeout(1200);
+  const donut = page.getByTestId('investing-concentration-donut');
+  await donut.scrollIntoViewIfNeeded().catch(() => {});
+  await page.waitForTimeout(2400);
+  await hideCaption(page);
+
   // --- 5. Workspace / settings ---
   await page.goto(`${WEB}/settings`, { waitUntil: 'networkidle' });
+  await showCaption(page, 'Currency & Display', 'Explicit reporting currency, locale, and decimal-place display profile.');
+  await page.getByTestId('settings-tab-currency').click();
+  await page.waitForTimeout(2600);
+  await hideCaption(page);
+
   await showCaption(page, 'Workspaces & RBAC', 'Multi-tenant workspaces with roles, audit logging, and a safe demo reset.');
-  await page.waitForTimeout(2200);
+  await page.waitForTimeout(1200);
   await page.getByTestId('settings-tab-danger').click();
   await page.waitForTimeout(1000);
   const resetSection = page.getByTestId('master-demo-reset-section');
@@ -391,8 +489,8 @@ async function recordTour(browser, storageState, categories) {
      <p class="tag">github.com/sajankp/lifestack-api</p>
      <ul>
        <li><b>80% / 70%</b> enforced coverage gates (API / web)</li>
-       <li><b>18</b> Playwright end-to-end suites against a Dockerized stack</li>
-       <li><b>68</b> approved specs — spec-driven development, protected main</li>
+       <li><b>23</b> Playwright end-to-end suites against a Dockerized stack</li>
+       <li><b>70</b> approved specs — spec-driven development, protected main</li>
      </ul>`,
     4500,
   );
