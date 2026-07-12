@@ -37,7 +37,8 @@ test.describe('Statement Reconciliation E2E Flow', () => {
       (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST'
     );
     await page.getByTestId('master-account-create').click();
-    await accountPromise;
+    const accountResponse = await accountPromise;
+    expect(accountResponse.ok()).toBeTruthy();
   });
 
   test('imports a statement and matches a line to an existing transaction @smoke', async ({ page }) => {
@@ -64,7 +65,8 @@ test.describe('Statement Reconciliation E2E Flow', () => {
       (res) => res.url().includes('/v1/spending/transactions') && res.request().method() === 'POST'
     );
     await page.getByTestId('spending-transaction-save').click();
-    await transactionPromise;
+    const transactionResponse = await transactionPromise;
+    expect(transactionResponse.ok()).toBeTruthy();
 
     // Build and import a statement CSV with one debit line that matches the
     // transaction above (date, description, debit).

@@ -43,7 +43,8 @@ test.describe('Custom Financial KPIs E2E Flow', () => {
       (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST'
     );
     await page.getByTestId('master-account-create').click();
-    await accountPromise;
+    const accountResponse = await accountPromise;
+    expect(accountResponse.ok()).toBeTruthy();
 
     await page.getByTestId('nav-spending').click();
     await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
@@ -59,12 +60,15 @@ test.describe('Custom Financial KPIs E2E Flow', () => {
       (res) => res.url().includes('/v1/spending/transactions') && res.request().method() === 'POST'
     );
     await page.getByTestId('spending-transaction-save').click();
-    await transactionPromise;
+    const transactionResponse = await transactionPromise;
+    expect(transactionResponse.ok()).toBeTruthy();
 
     // Create a KPI targeting spend_total <= 100 for the current calendar month —
     // the 150 transaction above breaches it immediately.
     await page.getByTestId('spending-tab-kpis').click();
-    await expect(page.getByRole('heading', { name: 'Custom KPIs' })).toBeVisible();
+    // Exact match: the empty-state heading "No custom KPIs yet" also contains
+    // the substring "Custom KPIs" and both render together before any KPI exists.
+    await expect(page.getByRole('heading', { name: 'Custom KPIs', exact: true })).toBeVisible();
     await page.getByTestId('kpi-add-button').click();
     await expect(page.getByTestId('kpi-form')).toBeVisible();
 
@@ -102,7 +106,8 @@ test.describe('Custom Financial KPIs E2E Flow', () => {
       (res) => res.url().includes(`/v1/spending/kpis/${kpi.public_id}`) && res.request().method() === 'DELETE'
     );
     await page.getByRole('button', { name: 'Delete', exact: true }).click();
-    await kpiDeletePromise;
+    const kpiDeleteResponse = await kpiDeletePromise;
+    expect(kpiDeleteResponse.ok()).toBeTruthy();
     await expect(page.getByTestId(`kpi-card-${kpi.public_id}`)).toHaveCount(0);
   });
 });

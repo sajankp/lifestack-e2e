@@ -147,7 +147,8 @@ test.describe('Investing Return Metrics & Net Worth Historical Data E2E Flow', (
       (res) => res.url().includes(`/net-worth/history/user-points/${pointId}`) && res.request().method() === 'DELETE'
     );
     await page.getByTestId(`historical-networth-delete-${pointId}`).click();
-    await deletePromise;
+    const deleteResponse = await deletePromise;
+    expect(deleteResponse.ok()).toBeTruthy();
     await expect(page.getByTestId(`historical-networth-row-${pointId}`)).toHaveCount(0);
   });
 });

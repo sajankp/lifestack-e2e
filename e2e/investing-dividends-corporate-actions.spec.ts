@@ -98,7 +98,8 @@ test.describe('Investing Dividends & Corporate Actions E2E Flow', () => {
       (res) => res.url().includes(`/v1/investing/dividends/${dividend.public_id}`) && res.request().method() === 'DELETE'
     );
     await page.getByTestId('dividend-confirm-delete').click();
-    await deletePromise;
+    const deleteResponse = await deletePromise;
+    expect(deleteResponse.ok()).toBeTruthy();
     await expect(page.getByTestId(`dividend-row-${dividend.public_id}`)).toHaveCount(0);
   });
 
@@ -135,7 +136,8 @@ test.describe('Investing Dividends & Corporate Actions E2E Flow', () => {
       (res) => res.url().includes(`/v1/investing/corporate-actions/${action.public_id}`) && res.request().method() === 'DELETE'
     );
     await page.getByTestId('corporate-action-confirm-delete').click();
-    await deletePromise;
+    const deleteResponse = await deletePromise;
+    expect(deleteResponse.ok()).toBeTruthy();
     await expect(page.getByTestId(`corporate-action-row-${action.public_id}`)).toHaveCount(0);
   });
 });
