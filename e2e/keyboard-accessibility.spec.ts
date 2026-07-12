@@ -69,10 +69,14 @@ test.describe('Keyboard accessibility E2E Flow', () => {
     const completeResponse = await completePromise;
     expect(completeResponse.ok()).toBeTruthy();
 
-    await expect(page.getByTestId(toggleTestId)).toHaveAttribute(
-      'aria-label',
-      `Mark todo as incomplete: ${todoTitle}`,
-    );
+    // Completing a todo removes it from the open-todos list (spec-068: the open
+    // fetch excludes completed=true rows) — it now only surfaces in the collapsed
+    // "Completed" section, with no toggle-back control there. Expand that section
+    // via keyboard to confirm the item landed there.
+    await expect(page.getByTestId(toggleTestId)).toHaveCount(0);
+    await tabUntilTestId(page, 'todo-completed-toggle');
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId(`todo-completed-item-${todo.public_id}`)).toBeVisible();
   });
 
   test('supports keyboard creation through the Spending category modal', async ({
