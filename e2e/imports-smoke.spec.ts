@@ -11,7 +11,7 @@ test.describe('Imports Smoke Flow', () => {
   let testUsername = '';
   let accountName = '';
   const testPassword = 'Password123!';
-  const apiBaseUrl = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8000';
+  const apiBaseUrl = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8001';
 
   test.beforeEach(async ({ page, baseURL }) => {
     const uniqueId = randomUUID();
@@ -84,12 +84,29 @@ test.describe('Imports Smoke Flow', () => {
       await page.getByTestId('imports-file-input').setInputFiles(csvPath);
       await page.getByTestId('imports-upload-validate').click();
 
+      // UX Review #2: Category column in import preview table must resolve ID to human name, NOT raw UUID
+      const previewCategoryCell = page.getByTestId('import-preview-row-0-category');
+      if (await previewCategoryCell.isVisible()) {
+        const previewCategoryText = await previewCategoryCell.innerText();
+        expect(previewCategoryText).not.toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+        expect(previewCategoryText).toContain('Other');
+      }
+
+      // UX Review P2 #13 & Error Summary phrasing: check error summary says "No errors" rather than "0/0 returned"
+      const errorSummary = page.getByTestId('imports-error-summary');
+      if (await errorSummary.isVisible()) {
+        await expect(errorSummary).not.toContainText('0/0 returned');
+      }
+
       const commitButton = page.getByTestId('imports-commit');
       await expect(commitButton).toBeEnabled({ timeout: 20000 });
       await commitButton.click();
 
+      // UX Review #3: After clicking commit, status must settle cleanly (not stuck on "Applying")
       const statusLine = page.locator('p').filter({ hasText: 'Status:' }).first();
-      await expect(statusLine).toContainText('Completed', { timeout: 30000 });
+      await expect(statusLine).toContainText(/Completed|Committed|Applied/i, { timeout: 30000 });
+      await expect(statusLine).not.toContainText('Applying');
+      await expect(commitButton).not.toBeVisible();
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }

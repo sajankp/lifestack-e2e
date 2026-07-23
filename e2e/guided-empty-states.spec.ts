@@ -80,4 +80,32 @@ test.describe('Guided Empty States E2E Flow', () => {
     await expect(page.getByTestId('master-account-name')).toBeVisible();
     await expect(page.getByTestId('master-account-create')).toBeVisible();
   });
+
+  // Two findings from the 2026-07-16 UX review (Part 2 #1 and #5) that are NOT
+  // yet fixed in lifestack-web — verified against main on 2026-07-23:
+  // - DashboardPage treats valuation_status 'empty' as stale, so a pristine
+  //   workspace greets the user with a Valuation Alert.
+  // - The New Transaction modal renders the red "Every transaction needs an
+  //   account" error on a pristine form (whenever no default account exists).
+  // Un-fixme once the web fixes land; the assertions below then gate them.
+  test.fixme('pristine workspace shows no premature alerts or form errors', async ({
+    page,
+    baseURL,
+  }) => {
+    const uniqueId = randomUUID();
+    await registerAndLogin(page, baseURL, {
+      email: `e2e-pristine-${uniqueId}@example.com`,
+      username: `e2e_pristine_${uniqueId.replace(/-/g, '_')}`,
+      password: 'Password123!',
+    });
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    // UX Review Part 2 #1: Valuation alert must NOT fire on a pristine empty workspace
+    await expect(page.getByText(/Portfolio valuation status is 'empty'/i)).not.toBeVisible();
+
+    // UX Review Part 2 #5: Opening pristine New Transaction form must NOT show red error immediately
+    await page.getByTestId('nav-spending').click();
+    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
+    await page.getByTestId('spending-open-new-transaction').click();
+    await expect(page.getByText(/Every transaction needs an account/i)).not.toBeVisible();
+  });
 });

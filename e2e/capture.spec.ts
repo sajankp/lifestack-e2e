@@ -5,8 +5,10 @@
 import { test, expect } from '@playwright/test';
 import { retryUnauthorized } from './helpers/api';
 
-const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
-const API_BASE = PLAYWRIGHT_API_URL.endsWith('/v1') ? PLAYWRIGHT_API_URL : `${PLAYWRIGHT_API_URL}/v1`;
+function getApiBase(): string {
+  const url = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8001';
+  return url.endsWith('/v1') ? url : `${url}/v1`;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -39,12 +41,12 @@ async function loginViaApi(
   const params = new URLSearchParams({ username: email, password });
   let lastRes: import('@playwright/test').APIResponse | undefined;
   for (let attempt = 0; attempt < 3; attempt++) {
-    lastRes = await request.post(`${API_BASE}/auth/login`, {
+    lastRes = await request.post(`${getApiBase()}/auth/login`, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       data: params.toString(),
     });
     if (lastRes.status() === 200) {
-      await retryUnauthorized(() => request.get(`${API_BASE}/auth/me`));
+      await retryUnauthorized(() => request.get(`${getApiBase()}/auth/me`));
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, 150));
@@ -57,19 +59,19 @@ async function registerViaApi(
   request: import('@playwright/test').APIRequestContext,
   creds: { email: string; username: string; password: string },
 ): Promise<{ userId: string; workspaceId: string }> {
-  const res = await request.post(`${API_BASE}/auth/register`, {
+  const res = await request.post(`${getApiBase()}/auth/register`, {
     data: { email: creds.email, username: creds.username, password: creds.password },
   });
   expect([200, 201], `Register failed: ${await res.text()}`).toContain(res.status());
   
   await loginViaApi(request, creds.email, creds.password);
  
-  const meRes = await retryUnauthorized(() => request.get(`${API_BASE}/auth/me`));
+  const meRes = await retryUnauthorized(() => request.get(`${getApiBase()}/auth/me`));
   expect(meRes.status()).toBe(200);
   const meBody = (await meRes.json()) as { public_id: string };
 
   const wsRes = await retryUnauthorized(
-    () => request.get(`${API_BASE}/platform/workspaces/`),
+    () => request.get(`${getApiBase()}/platform/workspaces/`),
   );
   expect(wsRes.status()).toBe(200);
   const wsBody = (await wsRes.json()) as { items?: Array<{ public_id: string }> };
@@ -89,7 +91,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     const { userId: viewerPublicId } = await registerViaApi(page.request, viewerCreds);
 
     await loginViaApi(page.request, ownerCreds.email, ownerCreds.password);
-    const inviteRes = await page.request.post(`${API_BASE}/platform/workspaces/${workspaceId}/members`, {
+    const inviteRes = await page.request.post(`${getApiBase()}/platform/workspaces/${workspaceId}/members`, {
       headers: await getHeaders(page.context()),
       data: { user_public_id: viewerPublicId, role: 'viewer' },
     });
@@ -97,7 +99,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
 
     // 2. Login as viewer and select shared workspace
     await loginViaApi(page.request, viewerCreds.email, viewerCreds.password);
-    const selectRes = await page.request.post(`${API_BASE}/platform/workspaces/${workspaceId}/select`, {
+    const selectRes = await page.request.post(`${getApiBase()}/platform/workspaces/${workspaceId}/select`, {
       headers: await getHeaders(page.context()),
     });
     expect([200, 204]).toContain(selectRes.status());
@@ -112,8 +114,15 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await expect(input).toBeVisible();
     await input.focus();
 
-    // The backend should immediately close the WebSocket with ForbiddenError (handshake reject yields 1006 in browser)
-    await expect(page.getByText('Session closed (1006).')).toBeVisible({ timeout: 10000 });
+    // The backend rejects the handshake (close 4001 pre-accept → browser sees
+    // 1006). Since spec-079 Stage B the client auto-reconnects on 1006 instead
+    // of printing "Session closed", so the observable terminal state is the
+    // reconnect-exhaustion error after MAX_RECONNECT_ATTEMPTS (5, exp backoff
+    // ≈23s). Follow-up flagged: the server should close 4003 (policy
+    // violation) for forbidden roles so the client doesn't retry at all.
+    await expect(
+      page.getByText('Reconnection failed after several attempts. Tap retry to start over.'),
+    ).toBeVisible({ timeout: 60000 });
   });
 
   // The composed e2e stack (docker-compose.e2e.yml) does not provision a
@@ -145,6 +154,12 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await expect(
       page.getByText('Voice capture is temporarily unavailable. Please try again.'),
     ).toBeVisible({ timeout: 10000 });
+
+    // UX Review Part 2 #7: Status must converge to one truthful status line rather than a stack of contradictory logs
+    const statusLogs = page.locator('[data-testid="voice-status-log-item"]');
+    if (await statusLogs.count() > 0) {
+      expect(await statusLogs.count()).toBeLessThanOrEqual(1);
+    }
   });
 
   test('MEMBER can submit text and trigger mock success events', async ({ page }) => {

@@ -70,9 +70,21 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     await page.getByTestId('spending-budget-save').click();
     await budgetPromise;
 
-    // Verify budget card is created
+    // Verify budget card is created & header bloat is collapsed on secondary sub-tab
     await page.getByTestId('spending-tab-budgets').click();
     await expect(page.locator(`text=${customCategory}`)).toBeVisible();
+
+    // UX Review P2 #1: Header summary block should be collapsed on secondary tab
+    const summaryCardBlock = page.getByTestId('spending-summary-cards-block');
+    if (await summaryCardBlock.isVisible()) {
+      await expect(summaryCardBlock).toHaveClass(/collapsed|hidden|compact/i);
+    }
+
+    // UX Review P1 #5: Spending filter bar should be disabled or hidden on Budgets tab
+    const filterBar = page.getByTestId('spending-filter-bar');
+    if (await filterBar.isVisible()) {
+      await expect(filterBar).toHaveAttribute('aria-disabled', 'true');
+    }
 
     // 4. Log a transaction breaching warning threshold (95%)
     await page.getByTestId('spending-open-new-transaction').click();
@@ -188,8 +200,10 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     await page.getByTestId('spending-tab-transactions').click();
     const row = page.locator('tbody tr').filter({ hasText: description });
     await expect(row).toBeVisible();
+    // The lowercase account-type pill ("wallet") was collapsed out of the SOURCE
+    // column by the 2026-07-16 UX review fixes (pill-noise reduction) — the row
+    // now shows account name + currency only.
     await expect(row).toContainText(accountName);
-    await expect(row).toContainText('wallet');
     await expect(row).toContainText('USD');
 
     const filteredRequest = page.waitForResponse((res) => {

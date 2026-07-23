@@ -176,10 +176,15 @@ test.describe('Notifications and Weekly Summaries E2E Flow', () => {
     await expect(summaryArticle.getByText('Spending', { exact: true })).toBeVisible();
     await expect(summaryArticle.getByText('Investing', { exact: true })).toBeVisible();
     await expect(summaryArticle.getByText('Tasks created')).toBeVisible();
+    // The message renders twice within one card (net-worth + returns sections) —
+    // an instance of the warning-duplication issue flagged in the 2026-07-16 UX
+    // review (Real-Data pass); .first() until the web dedupes repeated warnings.
     await expect(
-      summaryArticle.getByText(
-        'Weekly comparison unavailable because compatible start and end snapshots were not found.',
-      ),
+      summaryArticle
+        .getByText(
+          'Weekly comparison unavailable because compatible start and end snapshots were not found.',
+        )
+        .first(),
     ).toBeVisible();
 
     // The standalone "Latest weekly summary" dashboard card was removed in the
