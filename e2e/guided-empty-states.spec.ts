@@ -81,14 +81,10 @@ test.describe('Guided Empty States E2E Flow', () => {
     await expect(page.getByTestId('master-account-create')).toBeVisible();
   });
 
-  // Two findings from the 2026-07-16 UX review (Part 2 #1 and #5) that are NOT
-  // yet fixed in lifestack-web — verified against main on 2026-07-23:
-  // - DashboardPage treats valuation_status 'empty' as stale, so a pristine
-  //   workspace greets the user with a Valuation Alert.
-  // - The New Transaction modal renders the red "Every transaction needs an
-  //   account" error on a pristine form (whenever no default account exists).
-  // Un-fixme once the web fixes land; the assertions below then gate them.
-  test.fixme('pristine workspace shows no premature alerts or form errors', async ({
+  // Two findings from the 2026-07-16 UX review (Part 2 #1 and #5), fixed in
+  // web PR #216: the valuation alert no longer fires for status 'empty', and
+  // the New Transaction modal stays error-free until the form is touched.
+  test('pristine workspace shows no premature alerts or form errors', async ({
     page,
     baseURL,
   }) => {
