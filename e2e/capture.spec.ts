@@ -114,15 +114,10 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await expect(input).toBeVisible();
     await input.focus();
 
-    // The backend rejects the handshake (close 4001 pre-accept → browser sees
-    // 1006). Since spec-079 Stage B the client auto-reconnects on 1006 instead
-    // of printing "Session closed", so the observable terminal state is the
-    // reconnect-exhaustion error after MAX_RECONNECT_ATTEMPTS (5, exp backoff
-    // ≈23s). Follow-up flagged: the server should close 4003 (policy
-    // violation) for forbidden roles so the client doesn't retry at all.
-    await expect(
-      page.getByText('Reconnection failed after several attempts. Tap retry to start over.'),
-    ).toBeVisible({ timeout: 60000 });
+    // The backend accepts the handshake and closes 4003 (policy violation) for
+    // forbidden roles (api issue #199) — the client treats 4003 as terminal and
+    // does not retry, so the session-closed message appears immediately.
+    await expect(page.getByText('Session closed (4003).')).toBeVisible({ timeout: 10000 });
   });
 
   // The composed e2e stack (docker-compose.e2e.yml) does not provision a
