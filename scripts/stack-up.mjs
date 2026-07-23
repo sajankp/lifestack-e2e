@@ -25,6 +25,7 @@ function run(command, args, options = {}) {
 const seedScript = `
 import asyncio
 from datetime import datetime, UTC
+import app.main
 from app.core.database.postgres import async_session_maker
 from app.finance.models import FxRate
 
