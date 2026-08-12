@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const executablePath = process.env.PLAYWRIGHT_EXECUTABLE_PATH;
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -15,6 +17,7 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     timezoneId: 'UTC',
+    ...(executablePath ? { launchOptions: { executablePath } } : {}),
     extraHTTPHeaders: {
       'Origin': process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174',
     },

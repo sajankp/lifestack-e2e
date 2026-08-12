@@ -46,6 +46,5 @@ asyncio.run(seed())
 `.trim();
 
 run('docker', [...composeArgs, 'up', '-d', '--build']);
-run('docker', [...composeArgs, 'exec', '-T', 'api-e2e', 'alembic', 'upgrade', 'head']);
 run('docker', [...composeArgs, 'exec', '-T', 'api-e2e', 'python', '-c', seedScript]);
 run('node', ['./scripts/precheck.mjs']);

@@ -66,7 +66,7 @@ test.describe('Todo Smoke Flow', () => {
     await page.getByTestId('nav-todo').click();
     await expect(page.getByRole('heading', { name: 'Todos' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Add Task' }).click();
+    await page.getByRole('button', { name: 'Add todo' }).click();
 
     await page.getByTestId('todo-new-title').fill(taskTitle);
     await page.getByTestId('todo-new-due-date').click();
@@ -83,7 +83,7 @@ test.describe('Todo Smoke Flow', () => {
     expect(dueAt.toISOString()).toBe(`${todayValue}T16:00:00.000Z`);
 
     await expect(page.getByRole('heading', { name: taskTitle })).toBeVisible();
-    await expect(page.getByText(/^Due:/).filter({ hasText: /16:00/ })).toBeVisible();
+    await expect(page.getByText(/^(Due|Overdue):/).filter({ hasText: /16:00/ })).toBeVisible();
     await page.getByRole('button', { name: `Mark todo as complete: ${taskTitle}` }).click();
 
     // Completing a task moves it out of the open, date-grouped view and into
@@ -100,7 +100,7 @@ test.describe('Todo Smoke Flow', () => {
     await page.getByTestId('nav-todo').click();
     await expect(page.getByRole('heading', { name: 'Todos' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Add Task' }).click();
+    await page.getByRole('button', { name: 'Add todo' }).click();
     await page.getByTestId('todo-new-title').fill(parentTitle);
     const createParent = waitForTodoWrite(page, 'POST');
     await page.getByTestId('todo-new-submit').click();
@@ -180,7 +180,7 @@ test.describe('Todo Smoke Flow', () => {
       await expect(page.getByRole('heading', { name: 'Todos' })).toBeVisible();
 
       const row = page.getByTestId(/^todo-item-/).filter({ hasText: touchTitle });
-      const deleteButton = row.getByRole('button', { name: 'Delete task' });
+      const deleteButton = row.getByTestId(/^todo-delete-/);
       const actionsContainer = deleteButton.locator('..');
       await expect(deleteButton).toBeVisible();
       // Row actions must not rely on hover on a touch device (spec-068) —
@@ -188,7 +188,7 @@ test.describe('Todo Smoke Flow', () => {
       await expect(actionsContainer).toHaveCSS('opacity', '1');
 
       await deleteButton.click();
-      await expect(page.getByRole('dialog').filter({ hasText: 'Delete task?' })).toBeVisible();
+      await expect(page.getByRole('dialog').filter({ hasText: 'Delete todo?' })).toBeVisible();
       await page.getByRole('button', { name: 'Delete' }).click();
 
       await expect(page.getByRole('heading', { name: touchTitle })).not.toBeVisible();

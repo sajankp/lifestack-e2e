@@ -23,11 +23,11 @@ test.describe('Guided Empty States E2E Flow', () => {
 
     await page.getByTestId('nav-todo').click();
     await expect(page.getByRole('heading', { name: 'Todos' })).toBeVisible();
-    await expect(page.getByText('No tasks yet.')).toBeVisible();
+    await expect(page.getByText('No todos yet.')).toBeVisible();
     await page.getByTestId('todo-tab-recurring').click();
     await expect(page.getByText('No recurring todos yet.')).toBeVisible();
     await page.getByTestId('todo-tab-tasks').click();
-    await expect(page.getByRole('button', { name: 'Add Task' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add todo' })).toBeVisible();
 
     await page.getByTestId('nav-spending').click();
     await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
@@ -48,7 +48,7 @@ test.describe('Guided Empty States E2E Flow', () => {
     await expect(page.getByText('No holdings yet.').filter({ visible: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Sync Latest Close' })).toBeVisible();
     await page.getByTestId('investing-tab-cash').click();
-    await expect(page.getByText('No cash balances yet.').filter({ visible: true })).toBeVisible();
+    await expect(page.getByTestId('investing-cash-empty')).toBeVisible();
 
     await page.getByTestId('nav-imports').click();
     await expect(page.getByRole('heading', { name: 'Bulk Imports' })).toBeVisible();

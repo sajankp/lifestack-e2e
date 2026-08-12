@@ -169,7 +169,7 @@ test.describe('Notifications and Weekly Summaries E2E Flow', () => {
     await expect(page.getByTestId('header-notifications')).not.toContainText('1');
 
     await page.getByTestId('nav-summaries').click();
-    await expect(page.getByRole('heading', { name: 'Weekly Summaries' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Weekly Summaries', exact: true })).toBeVisible();
     const summaryArticle = page.getByRole('article').filter({ hasText: /^Week of / }).first();
     await expect(summaryArticle).toBeVisible();
     await expect(summaryArticle.getByText('Todo', { exact: true })).toBeVisible();
@@ -239,18 +239,18 @@ test.describe('Notifications and Weekly Summaries E2E Flow', () => {
 
     await selectWorkspace(page.request, personalWorkspace!.public_id);
     await page.goto('/summaries');
-    await expect(page.getByRole('heading', { name: 'Weekly Summaries' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Weekly Summaries', exact: true })).toBeVisible();
     const personalSummaryRun = await triggerWeeklySummary(page, weekStart);
     expect(personalSummaryRun.status).toBe('ok');
     expect(personalSummaryRun.week_start).toBe(weekStart);
     await expect.poll(() => unreadCount(page.request)).toBe(1);
     await page.reload();
-    await expect(page.getByRole('heading', { name: 'Weekly Summaries' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Weekly Summaries', exact: true })).toBeVisible();
     await expect(page.getByText('Tasks created').locator('..')).toContainText('1');
 
     await selectWorkspace(page.request, sharedWorkspace!.public_id);
     await page.reload();
-    await expect(page.getByRole('heading', { name: 'Weekly Summaries' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Weekly Summaries', exact: true })).toBeVisible();
     await expect(page.getByText('No weekly summaries yet')).toBeVisible();
     await expect.poll(() => unreadCount(page.request)).toBe(0);
 

@@ -24,11 +24,10 @@ From the `lifestack-e2e` directory, start the containers in detached mode:
 docker compose -f docker-compose.e2e.yml up -d --build
 ```
 
-### 3. Run Database Migrations
-Once Postgres is up, run the database migrations on the `api-e2e` container:
-```bash
-docker compose -f docker-compose.e2e.yml exec api-e2e alembic upgrade head
-```
+### 3. Database Migrations
+The Compose stack runs `alembic upgrade head` in a one-shot `migrate` service.
+The API waits for that service to complete successfully before starting, so
+the stack is ready for tests after `up` returns.
 
 ### 4. Run the Test Suite
 
@@ -43,6 +42,12 @@ npm run test:local        # full suite against the standard local ports (sets en
 npm run test:local:smoke  # @smoke subset against the standard local ports
 npm run test:smoke:stack  # brings the stack up, runs @smoke, tears it down
 npm run test:full:stack   # brings the stack up, runs the full suite, tears it down
+```
+
+On hosts where Playwright cannot download its bundled browser, point the suite
+at an installed Chrome binary:
+```bash
+PLAYWRIGHT_EXECUTABLE_PATH=/usr/bin/google-chrome npm run test:smoke:stack
 ```
 
 Other scripts:
