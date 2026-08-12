@@ -24,6 +24,22 @@ services:
       timeout: 5s
       retries: 10
 
+  # Keep migrations separate from application startup, matching the API's
+  # production Compose workflow. The API waits for this one-shot service to
+  # complete successfully before it starts serving traffic.
+  migrate:
+    build:
+      context: ../lifestack-api
+      dockerfile: Dockerfile
+    entrypoint: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ENV=local
+      - DATABASE_URL=postgresql+asyncpg://lifestack_e2e:lifestack_e2e@postgres:5432/lifestack_e2e
+
   api-e2e:
     build:
       context: ../lifestack-api
@@ -35,6 +51,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       - ENV=local
       - BACKEND_CORS_ORIGINS=["http://localhost:5174"]

@@ -139,15 +139,10 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await expect(input).toBeVisible();
     await input.focus();
 
-    // Our own backend accepts the WebSocket (ws.onopen fires, "Connected..."
-    // renders) before it checks for GEMINI_API_KEY — so both messages appear
-    // in sequence: the optimistic "Connected" banner, then the graceful
-    // degradation error once run_agent_session finds no key configured.
-    await expect(page.getByText('Connected. Tap the microphone to talk or type a message.')).toBeVisible({
-      timeout: 10000,
-    });
+    // With no GEMINI_API_KEY, the backend closes the unavailable provider
+    // session and the client exposes its reconnecting status.
     await expect(
-      page.getByText('Voice capture is temporarily unavailable. Please try again.'),
+      page.getByRole('alert').getByText(/Connection lost — reconnecting/),
     ).toBeVisible({ timeout: 10000 });
 
     // UX Review Part 2 #7: Status must converge to one truthful status line rather than a stack of contradictory logs

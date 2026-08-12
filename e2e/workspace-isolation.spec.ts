@@ -389,9 +389,16 @@ test.describe('Workspace isolation E2E Flow', () => {
     expect(memberPersonalWorkspace, 'Member personal workspace should be available').toBeTruthy();
     expect(memberSharedWorkspace, 'Invited owner workspace should be available').toBeTruthy();
 
-    await selectWorkspace(page.request, personalWorkspace.public_id);
     await page.goto('/todo');
     await expect(page.getByRole('heading', { name: 'Todos' })).toBeVisible();
+    const personalSelectResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes(`/v1/platform/workspaces/${personalWorkspace.public_id}/select`) &&
+        response.request().method() === 'POST',
+    );
+    await page.getByTestId('header-workspace-select').selectOption(personalWorkspace.public_id);
+    const personalSelectResponse = await personalSelectResponsePromise;
+    expect(personalSelectResponse.ok()).toBeTruthy();
     await expect(page.getByTestId('header-workspace-select')).toHaveValue(
       personalWorkspace!.public_id,
     );
@@ -522,4 +529,3 @@ test.describe('Workspace isolation E2E Flow', () => {
     expect(getSharedExportFromPersonal.status()).toBe(404);
   });
 });
-

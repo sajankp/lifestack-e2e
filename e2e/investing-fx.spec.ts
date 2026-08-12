@@ -201,7 +201,7 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     await expect(page.getByTestId('investing-portfolio-value')).toContainText('$2,000.00');
     await expect(page.getByTestId('investing-invested-value')).toContainText('$2,000.00');
     await expect(page.getByTestId('investing-total-gain-loss')).toContainText('$0.00');
-    await expect(page.getByTestId('investing-daily-change')).toContainText('N/A');
+    await expect(page.getByTestId('investing-daily-change')).toContainText('—');
     await expect(page.getByTestId('investing-fx-rates-used')).toContainText('1 GBP');
     await expect(page.getByTestId('investing-fx-rates-used')).toContainText('1.2500');
     await expect(page.getByTestId('investing-fx-rates-used')).toContainText('USD');
