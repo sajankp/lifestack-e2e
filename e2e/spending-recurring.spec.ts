@@ -158,4 +158,140 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
       page.locator('[data-testid^="spending-recurring-rule-"]').filter({ hasText: ruleDescription })
     ).not.toBeVisible();
   });
+
+  test('should calculate the next due date for a monthly rule on the 15th', async ({ page }) => {
+    const selectFromCombobox = async (trigger: Locator, optionName: string) => {
+      await trigger.click();
+      await page.getByRole('option', { name: optionName, exact: true }).click();
+    };
+
+    const accountName = `Monthly 15th Wallet ${testUsername.slice(-8)}`;
+    await page.getByTestId('nav-settings').click();
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+    await page.getByTestId('settings-tab-accounts').click();
+    await page.getByTestId('master-account-name').fill(accountName);
+    await page.getByTestId('master-account-currency').click();
+    await page.getByRole('option', { name: /^USD\b/ }).click();
+    const accountPromise = page.waitForResponse(
+      (res) => res.url().includes('/v1/finance/accounts') && res.request().method() === 'POST'
+    );
+    await page.getByTestId('master-account-create').click();
+    expect((await accountPromise).ok()).toBeTruthy();
+
+    await page.getByTestId('nav-spending').click();
+    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
+    await page.getByTestId('spending-open-add-recurring').click();
+    await selectFromCombobox(page.getByTestId('spending-recurring-category'), 'Food & Dining');
+    await selectFromCombobox(
+      page.getByTestId('spending-recurring-account'),
+      `${accountName} (wallet)`
+    );
+    await page.getByTestId('spending-recurring-amount').fill('15.00');
+    await page.getByTestId('spending-recurring-description').fill(ruleDescription);
+    await page.getByText('Advanced schedule').click();
+    await selectFromCombobox(page.getByTestId('spending-recurring-frequency'), 'Monthly');
+    const scheduleHelp = page.getByTestId('spending-recurring-schedule-help');
+    await expect(scheduleHelp).toContainText(
+      'For the 15th of every month, choose Monthly, Every N months = 1, and a Start Date on the 15th.'
+    );
+
+    const { anchorDate, expectedNextDueDate } = await page.evaluate(() => {
+      const now = new Date();
+      const pad = (value: number) => String(value).padStart(2, '0');
+      const anchor = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-15`;
+      const nextMonth = new Date(
+        now.getFullYear(),
+        now.getMonth() + (now.getDate() > 15 ? 1 : 0),
+        15
+      );
+      return {
+        anchorDate: anchor,
+        expectedNextDueDate: `${nextMonth.getFullYear()}-${pad(nextMonth.getMonth() + 1)}-15`,
+      };
+    });
+
+    await page.getByTestId('spending-recurring-anchor-date').click();
+    await page.locator('button[aria-label*="15th"]').click();
+    await expect(page.getByTestId('spending-recurring-anchor-date')).toContainText('15-');
+    await expect(scheduleHelp).toContainText('Expected next due:');
+
+    const createRequestPromise = page.waitForRequest(
+      (request) =>
+        request.url().includes('/v1/spending/recurring') && request.method() === 'POST'
+    );
+    const createPromise = page.waitForResponse(
+      (res) => res.url().includes('/v1/spending/recurring') && res.request().method() === 'POST'
+    );
+    await page.getByTestId('spending-recurring-create').click();
+    const createRequest = await createRequestPromise;
+    const createResponse = await createPromise;
+    expect(createResponse.ok()).toBeTruthy();
+
+    expect(createRequest.postDataJSON()).toMatchObject({
+      anchor_date: anchorDate,
+      frequency: 'monthly',
+      interval: 1,
+    });
+
+    const body = (await createResponse.json()) as {
+      anchor_date: string;
+      next_due_date: string;
+      frequency: string;
+      interval: number;
+    };
+    expect(body).toMatchObject({
+      anchor_date: anchorDate,
+      next_due_date: expectedNextDueDate,
+      frequency: 'monthly',
+      interval: 1,
+    });
+
+    const expectedDueLabel = await page.evaluate((dueDate) => {
+      const [year, month, day] = dueDate.split('-').map(Number);
+      const due = new Date(year, month - 1, day);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      due.setHours(0, 0, 0, 0);
+      const diffDays = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return diffDays === 0 ? 'Due today' : `Due in ${diffDays}d`;
+    }, expectedNextDueDate);
+
+    await page.getByTestId('spending-tab-recurring').click();
+    const ruleCard = page
+      .locator('[data-testid^="spending-recurring-rule-"]')
+      .filter({ hasText: ruleDescription });
+    await expect(ruleCard).toBeVisible();
+    await expect(ruleCard).toContainText(expectedDueLabel);
+
+    await ruleCard.locator('[data-testid^="spending-recurring-edit-"]').click();
+    const editAmount = page.getByTestId('spending-recurring-amount');
+    await expect(editAmount).toBeVisible();
+    expect(Number(await editAmount.inputValue())).toBe(15);
+    await expect(page.getByTestId('spending-recurring-anchor-date')).toBeDisabled();
+    await expect(page.getByTestId('spending-recurring-anchor-date')).toContainText('15-');
+    await expect(page.getByTestId('spending-recurring-schedule-summary')).toHaveText(
+      'Every month on the 15th'
+    );
+
+    await editAmount.fill('16.00');
+    const updateRequestPromise = page.waitForRequest(
+      (request) =>
+        request.url().includes('/v1/spending/recurring/') && request.method() === 'PATCH'
+    );
+    const updatePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes('/v1/spending/recurring/') && response.request().method() === 'PATCH'
+    );
+    await page.getByTestId('spending-recurring-update').click();
+    const updateRequest = await updateRequestPromise;
+    const updateResponse = await updatePromise;
+    expect(updateResponse.ok()).toBeTruthy();
+    expect(updateRequest.postDataJSON()).toMatchObject({
+      amount: 16,
+      frequency: 'monthly',
+      interval: 1,
+    });
+
+    await expect(ruleCard).toContainText('$16.00');
+  });
 });
