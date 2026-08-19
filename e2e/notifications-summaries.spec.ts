@@ -1,11 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { test, expect, type APIRequestContext, type BrowserContext } from '@playwright/test';
+import { test, expect, type APIRequestContext } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 import { retryUnauthorized } from './helpers/api';
 import { triggerWeeklySummary } from './helpers/e2e-hooks';
+import { apiV1, csrfHeaders } from './helpers/test-helpers';
 
-const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
-const API_BASE = PLAYWRIGHT_API_URL.endsWith('/v1') ? PLAYWRIGHT_API_URL : `${PLAYWRIGHT_API_URL}/v1`;
 const PASSWORD = 'Password123!';
 
 type Credentials = {
@@ -38,19 +37,6 @@ function currentUtcWeekStart(): string {
   return monday.toISOString().slice(0, 10);
 }
 
-async function csrfHeaders(source: BrowserContext | APIRequestContext) {
-  const state = await source.storageState();
-  const csrfCookie = state.cookies.find((cookie) => cookie.name === 'csrf_token');
-  expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
-  const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
-
-  return {
-    Origin: origin,
-    Referer: `${origin}/`,
-    ...(csrfCookie ? { 'X-CSRF-Token': csrfCookie.value } : {}),
-  };
-}
-
 async function loginViaApi(request: APIRequestContext, credentials: Credentials): Promise<void> {
   const params = new URLSearchParams({
     username: credentials.email,
@@ -59,7 +45,7 @@ async function loginViaApi(request: APIRequestContext, credentials: Credentials)
 
   let response: import('@playwright/test').APIResponse | undefined;
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    response = await request.post(`${API_BASE}/auth/login`, {
+    response = await request.post(`${apiV1()}/auth/login`, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       data: params.toString(),
     });
@@ -74,7 +60,7 @@ async function registerViaApi(
   request: APIRequestContext,
   credentials: Credentials,
 ): Promise<{ userId: string; workspace: WorkspaceInfo }> {
-  const registerResponse = await request.post(`${API_BASE}/auth/register`, {
+  const registerResponse = await request.post(`${apiV1()}/auth/register`, {
     data: {
       email: credentials.email,
       username: credentials.username,
@@ -88,12 +74,12 @@ async function registerViaApi(
 
   await loginViaApi(request, credentials);
 
-  const meResponse = await retryUnauthorized(() => request.get(`${API_BASE}/auth/me`));
+  const meResponse = await retryUnauthorized(() => request.get(`${apiV1()}/auth/me`));
   expect(meResponse.status()).toBe(200);
   const me = (await meResponse.json()) as { public_id: string };
 
   const workspaceResponse = await retryUnauthorized(
-    () => request.get(`${API_BASE}/platform/workspaces/`),
+    () => request.get(`${apiV1()}/platform/workspaces/`),
   );
   expect(workspaceResponse.status()).toBe(200);
   const workspaces = (await workspaceResponse.json()) as { items: WorkspaceInfo[] };
@@ -103,7 +89,7 @@ async function registerViaApi(
 }
 
 async function selectWorkspace(request: APIRequestContext, workspaceId: string): Promise<void> {
-  const response = await request.post(`${API_BASE}/platform/workspaces/${workspaceId}/select`, {
+  const response = await request.post(`${apiV1()}/platform/workspaces/${workspaceId}/select`, {
     headers: await csrfHeaders(request),
   });
   expect([200, 204], `Workspace select failed: ${await response.text()}`).toContain(
@@ -118,7 +104,7 @@ async function createTodo(
 ): Promise<void> {
   await selectWorkspace(request, workspaceId);
 
-  const response = await request.post(`${API_BASE}/todo/`, {
+  const response = await request.post(`${apiV1()}/todo/`, {
     headers: await csrfHeaders(request),
     data: { title, priority: 'medium', status: 'pending' },
   });
@@ -128,7 +114,7 @@ async function createTodo(
 }
 
 async function unreadCount(request: APIRequestContext): Promise<number> {
-  const response = await request.get(`${API_BASE}/notifications/unread-count`);
+  const response = await request.get(`${apiV1()}/notifications/unread-count`);
   expect(response.status()).toBe(200);
   const payload = (await response.json()) as { count: number };
   return payload.count;
@@ -207,7 +193,7 @@ test.describe('Notifications and Weekly Summaries E2E Flow', () => {
 
     await loginViaApi(request, ownerCredentials);
     const inviteResponse = await request.post(
-      `${API_BASE}/platform/workspaces/${owner.workspace.public_id}/members`,
+      `${apiV1()}/platform/workspaces/${owner.workspace.public_id}/members`,
       {
         headers: await csrfHeaders(request),
         data: {
@@ -221,7 +207,7 @@ test.describe('Notifications and Weekly Summaries E2E Flow', () => {
     );
 
     await loginViaApi(page.request, memberCredentials);
-    const workspaceResponse = await page.request.get(`${API_BASE}/platform/workspaces/`);
+    const workspaceResponse = await page.request.get(`${apiV1()}/platform/workspaces/`);
     expect(workspaceResponse.status()).toBe(200);
     const workspacePayload = (await workspaceResponse.json()) as { items: WorkspaceInfo[] };
     const personalWorkspace = workspacePayload.items.find(

@@ -2,31 +2,16 @@ import { test, expect, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { registerAndLogin } from './helpers/auth';
 import { retryUnauthorized } from './helpers/api';
-
-const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
-const API_BASE = PLAYWRIGHT_API_URL.endsWith('/v1') ? PLAYWRIGHT_API_URL : `${PLAYWRIGHT_API_URL}/v1`;
+import { apiV1, csrfHeaders } from './helpers/test-helpers';
 
 type ApiMedication = { public_id: string; name: string };
-
-async function csrfHeaders(page: Page) {
-  const state = await page.context().storageState();
-  const csrfCookie = state.cookies.find((cookie) => cookie.name === 'csrf_token');
-  expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
-  const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
-
-  return {
-    Origin: origin,
-    Referer: `${origin}/`,
-    ...(csrfCookie ? { 'X-CSRF-Token': csrfCookie.value } : {}),
-  };
-}
 
 async function createMedicationViaApi(
   page: Page,
   data: Record<string, unknown>,
 ): Promise<ApiMedication> {
   const response = await retryUnauthorized(async () =>
-    page.request.post(`${API_BASE}/health/medications`, {
+    page.request.post(`${apiV1()}/health/medications`, {
       headers: await csrfHeaders(page),
       data,
     }),
@@ -52,7 +37,7 @@ test.describe('Health Memory Flow', () => {
     });
   });
 
-  test('creates a medication, resolves missed + pending dose chips, logs a dose and a weight, and surfaces in the briefing @smoke', async ({
+  test('creates a medication, resolves missed + pending dose chips, logs a dose and a weight, and surfaces in the briefing @smoke @critical', async ({
     page,
   }) => {
     const medName = `Smoke Med ${Date.now()}`;

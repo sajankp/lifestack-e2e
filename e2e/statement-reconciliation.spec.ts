@@ -41,7 +41,7 @@ test.describe('Statement Reconciliation E2E Flow', () => {
     expect(accountResponse.ok()).toBeTruthy();
   });
 
-  test('imports a statement and matches a line to an existing transaction @smoke', async ({ page }) => {
+  test('imports a statement and matches a line to an existing transaction @smoke @critical', async ({ page }) => {
     const selectFromCombobox = async (trigger: ReturnType<typeof page.getByTestId>, optionName: string) => {
       await trigger.click();
       await page.getByRole('option', { name: optionName, exact: true }).click();

@@ -5,13 +5,13 @@ import { randomUUID } from 'node:crypto';
 
 import { test, expect } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
+import { apiV1, csrfHeaders } from './helpers/test-helpers';
 
 test.describe('Imports Smoke Flow', () => {
   let testEmail = '';
   let testUsername = '';
   let accountName = '';
   const testPassword = 'Password123!';
-  const apiBaseUrl = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8001';
 
   test.beforeEach(async ({ page, baseURL }) => {
     const uniqueId = randomUUID();
@@ -40,15 +40,9 @@ test.describe('Imports Smoke Flow', () => {
     expect(accountResponse.ok()).toBeTruthy();
   });
 
-  test('should validate and commit a spending import @smoke', async ({ page, baseURL }) => {
-    const context = page.context();
-    const origin = baseURL || 'http://localhost:5174';
-
-    const categoriesResponse = await context.request.get(`${apiBaseUrl}/v1/spending/categories`, {
-      headers: {
-        Origin: origin,
-        Referer: `${origin}/`,
-      },
+  test('should validate and commit a spending import @smoke @critical', async ({ page }) => {
+    const categoriesResponse = await page.request.get(`${apiV1()}/spending/categories`, {
+      headers: await csrfHeaders(page),
     });
     expect(categoriesResponse.status()).toBe(200);
     const categoriesPayload = (await categoriesResponse.json()) as {
@@ -112,15 +106,9 @@ test.describe('Imports Smoke Flow', () => {
     }
   });
 
-  test('should roll back a completed spending import from the UI', async ({ page, baseURL }) => {
-    const context = page.context();
-    const origin = baseURL || 'http://localhost:5174';
-
-    const categoriesResponse = await context.request.get(`${apiBaseUrl}/v1/spending/categories`, {
-      headers: {
-        Origin: origin,
-        Referer: `${origin}/`,
-      },
+  test('should roll back a completed spending import from the UI', async ({ page }) => {
+    const categoriesResponse = await page.request.get(`${apiV1()}/spending/categories`, {
+      headers: await csrfHeaders(page),
     });
     expect(categoriesResponse.status()).toBe(200);
     const categoriesPayload = (await categoriesResponse.json()) as {
@@ -162,13 +150,10 @@ test.describe('Imports Smoke Flow', () => {
       const statusLine = page.locator('p').filter({ hasText: 'Status:' }).first();
       await expect(statusLine).toContainText('Completed', { timeout: 30000 });
 
-      const transactionsAfterCommit = await context.request.get(
-        `${apiBaseUrl}/v1/spending/transactions`,
+      const transactionsAfterCommit = await page.request.get(
+        `${apiV1()}/spending/transactions`,
         {
-          headers: {
-            Origin: origin,
-            Referer: `${origin}/`,
-          },
+          headers: await csrfHeaders(page),
         },
       );
       expect(transactionsAfterCommit.status()).toBe(200);
@@ -187,13 +172,10 @@ test.describe('Imports Smoke Flow', () => {
       });
       await expect(page.getByText('No import batches yet.')).toBeVisible({ timeout: 10000 });
 
-      const transactionsAfterRollback = await context.request.get(
-        `${apiBaseUrl}/v1/spending/transactions`,
+      const transactionsAfterRollback = await page.request.get(
+        `${apiV1()}/spending/transactions`,
         {
-          headers: {
-            Origin: origin,
-            Referer: `${origin}/`,
-          },
+          headers: await csrfHeaders(page),
         },
       );
       expect(transactionsAfterRollback.status()).toBe(200);

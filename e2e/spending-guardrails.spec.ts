@@ -23,7 +23,7 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     });
   });
 
-  test('should create custom category, set budget, log transaction, and trigger warning todo @smoke', async ({ page }) => {
+  test('should create custom category, set budget, log transaction, and trigger warning todo @smoke @critical', async ({ page }) => {
     const selectFromCombobox = async (trigger: Locator, optionName: string) => {
       await trigger.click();
       await page.getByRole('option', { name: optionName, exact: true }).click();

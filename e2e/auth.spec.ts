@@ -6,7 +6,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 test.describe('Authentication and User Registration Flow', () => {
   const testPassword = 'Password123!';
 
-  test('should register, login, and logout successfully @smoke', async ({ page, baseURL }) => {
+  test('should register, login, and logout successfully @smoke @critical', async ({ page, baseURL }) => {
     const uniqueId = randomUUID();
     const testEmail = `e2e-user-${uniqueId}@example.com`;
     const testUsername = `e2euser_${uniqueId.replace(/-/g, '_')}`;

@@ -1,8 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { test, expect, type APIRequestContext, type BrowserContext } from '@playwright/test';
+import { test, expect, type APIRequestContext } from '@playwright/test';
+import {
+  apiV1,
+  createAccount,
+  csrfHeaders,
+  transferCash,
+} from './helpers/test-helpers';
 
-const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
-const API_BASE = PLAYWRIGHT_API_URL.endsWith('/v1') ? PLAYWRIGHT_API_URL : `${PLAYWRIGHT_API_URL}/v1`;
 const PASSWORD = 'Password123!';
 
 type Credentials = {
@@ -26,26 +30,13 @@ const makeCredentials = (label: string): Credentials => {
   };
 };
 
-async function csrfHeaders(source: BrowserContext | APIRequestContext) {
-  const state = await source.storageState();
-  const csrfCookie = state.cookies.find((cookie) => cookie.name === 'csrf_token');
-  expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
-  const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
-
-  return {
-    Origin: origin,
-    Referer: `${origin}/`,
-    ...(csrfCookie ? { 'X-CSRF-Token': csrfCookie.value } : {}),
-  };
-}
-
 async function loginViaApi(request: APIRequestContext, credentials: Credentials): Promise<void> {
   const params = new URLSearchParams({
     username: credentials.email,
     password: credentials.password,
   });
 
-  const response = await request.post(`${API_BASE}/auth/login`, {
+  const response = await request.post(`${apiV1()}/auth/login`, {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     data: params.toString(),
   });
@@ -57,7 +48,7 @@ async function registerViaApi(
   request: APIRequestContext,
   credentials: Credentials,
 ): Promise<{ userId: string; workspace: WorkspaceInfo }> {
-  const registerResponse = await request.post(`${API_BASE}/auth/register`, {
+  const registerResponse = await request.post(`${apiV1()}/auth/register`, {
     data: {
       email: credentials.email,
       username: credentials.username,
@@ -71,11 +62,11 @@ async function registerViaApi(
 
   await loginViaApi(request, credentials);
 
-  const meResponse = await request.get(`${API_BASE}/auth/me`);
+  const meResponse = await request.get(`${apiV1()}/auth/me`);
   expect(meResponse.status()).toBe(200);
   const me = (await meResponse.json()) as { public_id: string };
 
-  const workspaceResponse = await request.get(`${API_BASE}/platform/workspaces/`);
+  const workspaceResponse = await request.get(`${apiV1()}/platform/workspaces/`);
   expect(workspaceResponse.status()).toBe(200);
   const workspaces = (await workspaceResponse.json()) as { items: WorkspaceInfo[] };
   expect(workspaces.items.length).toBeGreaterThan(0);
@@ -84,7 +75,7 @@ async function registerViaApi(
 }
 
 async function selectWorkspace(request: APIRequestContext, workspaceId: string): Promise<void> {
-  const response = await request.post(`${API_BASE}/platform/workspaces/${workspaceId}/select`, {
+  const response = await request.post(`${apiV1()}/platform/workspaces/${workspaceId}/select`, {
     headers: await csrfHeaders(request),
   });
   expect([200, 204], `Workspace select failed: ${await response.text()}`).toContain(
@@ -99,7 +90,7 @@ async function createTodo(
 ): Promise<string> {
   await selectWorkspace(request, workspaceId);
 
-  const response = await request.post(`${API_BASE}/todo/`, {
+  const response = await request.post(`${apiV1()}/todo/`, {
     headers: await csrfHeaders(request),
     data: { title, priority: 'medium', status: 'pending' },
   });
@@ -118,7 +109,7 @@ async function createCategory(
 ): Promise<string> {
   await selectWorkspace(request, workspaceId);
 
-  const response = await request.post(`${API_BASE}/spending/categories`, {
+  const response = await request.post(`${apiV1()}/spending/categories`, {
     headers: await csrfHeaders(request),
     data: { name, color: '#38bdf8', icon: 'tag' },
   });
@@ -136,13 +127,14 @@ async function createSpendingTransaction(
   description: string,
   amount: string,
 ): Promise<string> {
-  const accountId = await createAccount(request, workspaceId, `${description} account`, 'wallet');
+  await selectWorkspace(request, workspaceId);
+  const account = await createAccount(request, `${description} account`, 'wallet', 'USD');
   const categoryId = await createCategory(request, workspaceId, `${description} category`);
 
-  const response = await request.post(`${API_BASE}/spending/transactions`, {
+  const response = await request.post(`${apiV1()}/spending/transactions`, {
     headers: await csrfHeaders(request),
     data: {
-      account_id: accountId,
+      account_id: account.public_id,
       category_id: categoryId,
       amount,
       type: 'expense',
@@ -160,48 +152,6 @@ async function createSpendingTransaction(
   return transaction.public_id;
 }
 
-async function createAccount(
-  request: APIRequestContext,
-  workspaceId: string,
-  name: string,
-  accountType = 'brokerage',
-): Promise<string> {
-  await selectWorkspace(request, workspaceId);
-  const response = await request.post(`${API_BASE}/finance/accounts`, {
-    headers: await csrfHeaders(request),
-    data: { name, account_type: accountType, default_currency_code: 'USD' },
-  });
-  expect(response.status()).toBe(201);
-  const account = (await response.json()) as { public_id: string };
-  return account.public_id;
-}
-
-async function transferCash(
-  request: APIRequestContext,
-  workspaceId: string,
-  fromAccountId: string,
-  toAccountId: string,
-  amount: string,
-  currency: string,
-): Promise<void> {
-  await selectWorkspace(request, workspaceId);
-  const response = await request.post(`${API_BASE}/finance/transfers`, {
-    headers: await csrfHeaders(request),
-    data: {
-      from_account_id: fromAccountId,
-      to_account_id: toAccountId,
-      from_module: 'spending',
-      to_module: 'investing',
-      gross_amount: amount,
-      net_amount_received: amount,
-      from_currency_code: currency,
-      to_currency_code: currency,
-      occurred_at: new Date().toISOString(),
-    },
-  });
-  expect(response.status(), `Transfer failed: ${await response.text()}`).toBe(201);
-}
-
 async function createHolding(
   request: APIRequestContext,
   workspaceId: string,
@@ -213,10 +163,10 @@ async function createHolding(
   // Holdings are order-derived only (manual POST /investing/holdings was
   // deliberately removed, commit 51a20c2) — fund the brokerage account then
   // place a buy order to create the holding, matching every other spec.
-  const walletAccountId = await createAccount(request, workspaceId, `${symbol} funding wallet`, 'wallet');
-  await transferCash(request, workspaceId, walletAccountId, accountId, '2000', 'USD');
+  const walletAccount = await createAccount(request, `${symbol} funding wallet`, 'wallet', 'USD');
+  await transferCash(request, walletAccount.public_id, accountId, '2000', 'USD');
 
-  const orderResponse = await request.post(`${API_BASE}/investing/orders`, {
+  const orderResponse = await request.post(`${apiV1()}/investing/orders`, {
     headers: await csrfHeaders(request),
     data: {
       account_id: accountId,
@@ -230,7 +180,7 @@ async function createHolding(
   });
   expect(orderResponse.status(), `Order placement failed: ${await orderResponse.text()}`).toBe(201);
 
-  const holdingsResponse = await request.get(`${API_BASE}/investing/holdings`, {
+  const holdingsResponse = await request.get(`${apiV1()}/investing/holdings`, {
     headers: await csrfHeaders(request),
   });
   expect(holdingsResponse.status()).toBe(200);
@@ -247,7 +197,7 @@ async function createImportBatch(
   csvContent: string,
 ): Promise<string> {
   await selectWorkspace(request, workspaceId);
-  const response = await request.post(`${API_BASE}/imports`, {
+  const response = await request.post(`${apiV1()}/imports`, {
     headers: await csrfHeaders(request),
     multipart: {
       module: moduleName,
@@ -268,7 +218,7 @@ async function createExport(
   workspaceId: string,
 ): Promise<string> {
   await selectWorkspace(request, workspaceId);
-  const response = await request.post(`${API_BASE}/exports`, {
+  const response = await request.post(`${apiV1()}/exports`, {
     headers: await csrfHeaders(request),
     data: { format: 'json', modules: ['todo'] },
   });
@@ -306,8 +256,10 @@ test.describe('Workspace isolation E2E Flow', () => {
       personalTransactionDescription,
       '12.34',
     );
+    await selectWorkspace(request, personalWorkspace.public_id);
     const personalAccountName = `Personal Acct ${suffix}`;
-    const personalAccountId = await createAccount(request, personalWorkspace.public_id, personalAccountName);
+    const personalAccount = await createAccount(request, personalAccountName, 'brokerage', 'USD');
+    const personalAccountId = personalAccount.public_id;
     const personalHoldingId = await createHolding(
       request,
       personalWorkspace.public_id,
@@ -340,8 +292,10 @@ test.describe('Workspace isolation E2E Flow', () => {
       sharedTransactionDescription,
       '56.78',
     );
+    await selectWorkspace(request, sharedWorkspace.public_id);
     const sharedAccountName = `Shared Acct ${suffix}`;
-    const sharedAccountId = await createAccount(request, sharedWorkspace.public_id, sharedAccountName);
+    const sharedAccount = await createAccount(request, sharedAccountName, 'brokerage', 'USD');
+    const sharedAccountId = sharedAccount.public_id;
     const sharedHoldingId = await createHolding(
       request,
       sharedWorkspace.public_id,
@@ -360,7 +314,7 @@ test.describe('Workspace isolation E2E Flow', () => {
     // Owner invites member
     await loginViaApi(request, ownerCredentials);
     const inviteResponse = await request.post(
-      `${API_BASE}/platform/workspaces/${sharedWorkspace.public_id}/members`,
+      `${apiV1()}/platform/workspaces/${sharedWorkspace.public_id}/members`,
       {
         headers: await csrfHeaders(request),
         data: {
@@ -377,7 +331,7 @@ test.describe('Workspace isolation E2E Flow', () => {
     await loginViaApi(page.request, memberCredentials);
     await loginViaApi(request, memberCredentials);
 
-    const workspaceResponse = await page.request.get(`${API_BASE}/platform/workspaces/`);
+    const workspaceResponse = await page.request.get(`${apiV1()}/platform/workspaces/`);
     expect(workspaceResponse.status()).toBe(200);
     const workspacePayload = (await workspaceResponse.json()) as { items: WorkspaceInfo[] };
     const memberPersonalWorkspace = workspacePayload.items.find(
@@ -443,31 +397,31 @@ test.describe('Workspace isolation E2E Flow', () => {
     await expect(page.getByTestId('investing-holding-symbol-AAPL')).toHaveCount(0);
 
     const personalTodoFromSharedWorkspace = await page.request.get(
-      `${API_BASE}/todo/${personalTodoId}`,
+      `${apiV1()}/todo/${personalTodoId}`,
     );
     expect(personalTodoFromSharedWorkspace.status()).toBe(404);
 
     await selectWorkspace(page.request, personalWorkspace!.public_id);
     const sharedTodoFromPersonalWorkspace = await page.request.get(
-      `${API_BASE}/todo/${sharedTodoId}`,
+      `${apiV1()}/todo/${sharedTodoId}`,
     );
     expect(sharedTodoFromPersonalWorkspace.status()).toBe(404);
 
     const sharedTransactionFromPersonalWorkspace = await page.request.get(
-      `${API_BASE}/spending/transactions/${sharedTransactionId}`,
+      `${apiV1()}/spending/transactions/${sharedTransactionId}`,
     );
     expect(sharedTransactionFromPersonalWorkspace.status()).toBe(404);
 
     await selectWorkspace(page.request, sharedWorkspace!.public_id);
     const personalTransactionFromSharedWorkspace = await page.request.get(
-      `${API_BASE}/spending/transactions/${personalTransactionId}`,
+      `${apiV1()}/spending/transactions/${personalTransactionId}`,
     );
     expect(personalTransactionFromSharedWorkspace.status()).toBe(404);
 
     // While sharedWorkspace is selected, check that personalWorkspace resources are inaccessible
     // 1. Investing holding
     const patchPersonalHoldingFromShared = await page.request.patch(
-      `${API_BASE}/investing/holdings/${personalHoldingId}`,
+      `${apiV1()}/investing/holdings/${personalHoldingId}`,
       {
         headers: await csrfHeaders(page.request),
         data: {},
@@ -476,7 +430,7 @@ test.describe('Workspace isolation E2E Flow', () => {
     expect(patchPersonalHoldingFromShared.status()).toBe(404);
 
     const deletePersonalHoldingFromShared = await page.request.delete(
-      `${API_BASE}/investing/holdings/${personalHoldingId}`,
+      `${apiV1()}/investing/holdings/${personalHoldingId}`,
       {
         headers: await csrfHeaders(page.request),
       }
@@ -485,13 +439,13 @@ test.describe('Workspace isolation E2E Flow', () => {
 
     // 2. Imports batch
     const getPersonalImportFromShared = await page.request.get(
-      `${API_BASE}/imports/${personalImportId}`,
+      `${apiV1()}/imports/${personalImportId}`,
     );
     expect(getPersonalImportFromShared.status()).toBe(404);
 
     // 3. Exports record
     const getPersonalExportFromShared = await page.request.get(
-      `${API_BASE}/exports/${personalExportId}`,
+      `${apiV1()}/exports/${personalExportId}`,
     );
     expect(getPersonalExportFromShared.status()).toBe(404);
 
@@ -500,7 +454,7 @@ test.describe('Workspace isolation E2E Flow', () => {
 
     // 1. Investing holding
     const patchSharedHoldingFromPersonal = await page.request.patch(
-      `${API_BASE}/investing/holdings/${sharedHoldingId}`,
+      `${apiV1()}/investing/holdings/${sharedHoldingId}`,
       {
         headers: await csrfHeaders(page.request),
         data: {},
@@ -509,7 +463,7 @@ test.describe('Workspace isolation E2E Flow', () => {
     expect(patchSharedHoldingFromPersonal.status()).toBe(404);
 
     const deleteSharedHoldingFromPersonal = await page.request.delete(
-      `${API_BASE}/investing/holdings/${sharedHoldingId}`,
+      `${apiV1()}/investing/holdings/${sharedHoldingId}`,
       {
         headers: await csrfHeaders(page.request),
       }
@@ -518,13 +472,13 @@ test.describe('Workspace isolation E2E Flow', () => {
 
     // 2. Imports batch
     const getSharedImportFromPersonal = await page.request.get(
-      `${API_BASE}/imports/${sharedImportId}`,
+      `${apiV1()}/imports/${sharedImportId}`,
     );
     expect(getSharedImportFromPersonal.status()).toBe(404);
 
     // 3. Exports record
     const getSharedExportFromPersonal = await page.request.get(
-      `${API_BASE}/exports/${sharedExportId}`,
+      `${apiV1()}/exports/${sharedExportId}`,
     );
     expect(getSharedExportFromPersonal.status()).toBe(404);
   });

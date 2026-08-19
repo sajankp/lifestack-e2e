@@ -1,48 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
+import {
+  apiV1,
+  createAccount,
+  csrfHeaders,
+  type Account,
+} from './helpers/test-helpers';
 
-const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
-const API_BASE = PLAYWRIGHT_API_URL.endsWith('/v1') ? PLAYWRIGHT_API_URL : `${PLAYWRIGHT_API_URL}/v1`;
-
-type Account = {
-  public_id: string;
-  name: string;
-  account_type: string;
-  default_currency_code: string;
-};
-
-async function csrfHeaders(page: Page) {
-  const state = await page.context().storageState();
-  const csrfCookie = state.cookies.find((cookie) => cookie.name === 'csrf_token');
-  expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
-  const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
-
-  return {
-    Origin: origin,
-    Referer: `${origin}/`,
-    ...(csrfCookie ? { 'X-CSRF-Token': csrfCookie.value } : {}),
-  };
-}
-
-async function createAccount(
-  page: Page,
-  name: string,
-  currencyCode: string,
-  accountType: 'bank' | 'wallet' = 'bank',
-): Promise<Account> {
-  const response = await page.request.post(`${API_BASE}/finance/accounts`, {
-    headers: await csrfHeaders(page),
-    data: {
-      name,
-      account_type: accountType,
-      default_currency_code: currencyCode,
-    },
-  });
-
-  expect(response.status(), `Account creation failed: ${await response.text()}`).toBe(201);
-  return (await response.json()) as Account;
-}
 
 async function chooseSelectOption(page: Page, triggerText: string, optionText: string): Promise<void> {
   await page.getByText(triggerText, { exact: true }).click();
@@ -153,9 +118,9 @@ test.describe('Transfer Flow E2E', () => {
     });
 
     // Re-create accounts after authentication so they belong to this fresh workspace.
-    const authedUsdSource = await createAccount(page, usdSourceName, 'USD');
-    const authedUsdTarget = await createAccount(page, usdTargetName, 'USD', 'wallet');
-    const authedGbpTarget = await createAccount(page, gbpTargetName, 'GBP');
+    const authedUsdSource = await createAccount(page, usdSourceName, 'bank', 'USD');
+    const authedUsdTarget = await createAccount(page, usdTargetName, 'wallet', 'USD');
+    const authedGbpTarget = await createAccount(page, gbpTargetName, 'bank', 'GBP');
 
     await page.getByTestId('nav-spending').click();
     await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
@@ -176,7 +141,7 @@ test.describe('Transfer Flow E2E', () => {
     await selectLedgerAccount(page, gbpTargetLabel);
     await expectLedgerTransferRow(page, crossCurrencyNote, 'In', '£77.00');
 
-    const invalidTransfer = await page.request.post(`${API_BASE}/finance/transfers`, {
+    const invalidTransfer = await page.request.post(`${apiV1()}/finance/transfers`, {
       headers: await csrfHeaders(page),
       data: {
         from_module: 'spending',
