@@ -1,14 +1,15 @@
+import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 test.describe('Authentication and User Registration Flow', () => {
-  const timestamp = Date.now();
-  const testEmail = `e2e-user-${timestamp}@example.com`;
-  const testUsername = `e2euser_${timestamp}`;
   const testPassword = 'Password123!';
 
   test('should register, login, and logout successfully @smoke', async ({ page, baseURL }) => {
+    const uniqueId = randomUUID();
+    const testEmail = `e2e-user-${uniqueId}@example.com`;
+    const testUsername = `e2euser_${uniqueId.replace(/-/g, '_')}`;
     page.on('console', msg => console.log('BROWSER CONSOLE:', msg.text(), msg.type()));
     page.on('requestfailed', req => console.log('BROWSER REQUEST FAILED:', req.url(), req.failure()?.errorText));
 
@@ -22,7 +23,7 @@ test.describe('Authentication and User Registration Flow', () => {
 
     // 3. Register user
     let redirectedToLogin = false;
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
       if (attempt > 0) {
         await page.goto('/register');
         await expect(page).toHaveURL(/.*\/register/);
@@ -31,18 +32,26 @@ test.describe('Authentication and User Registration Flow', () => {
       await page.fill('input[placeholder="Email address"]', testEmail);
       await page.fill('input[placeholder="Username"]', testUsername);
       await page.fill('input[placeholder="Password"]', testPassword);
+      const registerResponsePromise = page.waitForResponse(
+        (response) => response.url().includes('/auth/register') && response.request().method() === 'POST',
+      );
       await page.click('button[type="submit"]');
+      const registerResponse = await registerResponsePromise;
 
-      redirectedToLogin = await page
-        .waitForURL(/.*\/login/, { timeout: 5000 })
-        .then(() => true)
-        .catch(() => false);
+      if (registerResponse.ok()) {
+        await expect(page).toHaveURL(/.*\/login/, { timeout: 15000 });
+        redirectedToLogin = true;
+      }
 
       if (redirectedToLogin) break;
 
-      const rateLimited = await page.locator('text=Rate limit exceeded').isVisible();
-      if (rateLimited && attempt < 1) {
-        await delay(1_500);
+      const rateLimited =
+        registerResponse.status() === 429 ||
+        (await page.locator('text=Rate limit exceeded').isVisible()) ||
+        (await page.locator('text=Too many requests').isVisible());
+      if (rateLimited && attempt < 2) {
+        const retryAfter = Number(registerResponse.headers()['retry-after']);
+        await delay(Number.isFinite(retryAfter) ? Math.max(1500, retryAfter * 1000) : 5000);
         continue;
       }
       break;

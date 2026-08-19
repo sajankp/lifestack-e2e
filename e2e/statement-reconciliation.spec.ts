@@ -57,8 +57,9 @@ test.describe('Statement Reconciliation E2E Flow', () => {
     await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
     await page.getByTestId('spending-open-new-transaction').click();
     await page.getByTestId('spending-transaction-amount').fill('42.50');
-    await page.getByTestId('spending-transaction-category').click();
-    await page.getByRole('option').first().click();
+    // Select a real seeded category instead of assuming the first option is a
+    // category; the first option may be "+ Create new" and open a modal.
+    await selectFromCombobox(page.getByTestId('spending-transaction-category'), 'Food & Dining');
     await selectFromCombobox(page.getByTestId('spending-transaction-account'), `${accountName} (wallet)`);
     await page.getByTestId('spending-transaction-description').fill(description);
     const transactionPromise = page.waitForResponse(
