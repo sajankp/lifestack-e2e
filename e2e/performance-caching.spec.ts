@@ -1,21 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { test, expect } from '@playwright/test';
+import { test, expect, type Locator } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
-
-const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8001';
-const API_BASE = PLAYWRIGHT_API_URL.endsWith('/v1') ? PLAYWRIGHT_API_URL : `${PLAYWRIGHT_API_URL}/v1`;
-
-async function csrfHeaders(page: import('@playwright/test').Page) {
-  const state = await page.context().storageState();
-  const csrfCookie = state.cookies.find((c) => c.name === 'csrf_token');
-  expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
-  const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
-  return {
-    Origin: origin,
-    Referer: `${origin}/`,
-    'X-CSRF-Token': csrfCookie?.value ?? '',
-  };
-}
+import { apiV1, csrfHeaders } from './helpers/test-helpers';
 
 test.describe('Performance & API Caching E2E Spec', () => {
   let testEmail = '';
@@ -40,13 +26,13 @@ test.describe('Performance & API Caching E2E Spec', () => {
     // no request-time timestamps), so its ETag is deterministic. /dashboard/summary
     // is unsuitable here: its body embeds an as-of timestamp, so a fresh 200 with
     // a new ETag is the CORRECT behavior for it.
-    const initialRes = await page.request.get(`${API_BASE}/spending/categories`, { headers });
+    const initialRes = await page.request.get(`${apiV1()}/spending/categories`, { headers });
     expect(initialRes.status()).toBe(200);
 
     const etag = initialRes.headers()['etag'];
     expect(etag, 'ETag header expected on GET /spending/categories').toBeTruthy();
 
-    const conditionalRes = await page.request.get(`${API_BASE}/spending/categories`, {
+    const conditionalRes = await page.request.get(`${apiV1()}/spending/categories`, {
       headers: {
         ...headers,
         'If-None-Match': etag!,
@@ -59,16 +45,16 @@ test.describe('Performance & API Caching E2E Spec', () => {
     const headers = await csrfHeaders(page);
 
     // limit=500 must fail with 422 (spec-010 / pagination contract)
-    const overLimitRes = await page.request.get(`${API_BASE}/finance/transfers?limit=500&offset=0`, { headers });
+    const overLimitRes = await page.request.get(`${apiV1()}/finance/transfers?limit=500&offset=0`, { headers });
     expect(overLimitRes.status()).toBe(422);
 
     // limit=200 must succeed with 200
-    const validLimitRes = await page.request.get(`${API_BASE}/finance/transfers?limit=200&offset=0`, { headers });
+    const validLimitRes = await page.request.get(`${apiV1()}/finance/transfers?limit=200&offset=0`, { headers });
     expect(validLimitRes.status()).toBe(200);
   });
 
   test('optimistically removes deleted transaction from web cache', async ({ page }) => {
-    const selectFromCombobox = async (trigger: import('@playwright/test').Locator, optionName: string) => {
+    const selectFromCombobox = async (trigger: Locator, optionName: string) => {
       await trigger.click();
       await page.getByRole('option', { name: optionName, exact: true }).click();
     };

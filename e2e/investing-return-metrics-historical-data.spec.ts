@@ -3,24 +3,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
-
-const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
-const API_BASE = PLAYWRIGHT_API_URL.endsWith('/v1') ? PLAYWRIGHT_API_URL : `${PLAYWRIGHT_API_URL}/v1`;
-
-async function csrfHeaders(page: Page) {
-  const state = await page.context().storageState();
-  const csrfCookie = state.cookies.find((c) => c.name === 'csrf_token');
-  expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
-  if (!csrfCookie) throw new Error('CSRF token cookie is missing');
-  const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
-  return {
-    Origin: origin,
-    Referer: `${origin}/`,
-    'X-CSRF-Token': csrfCookie.value,
-  };
-}
+import {
+  apiV1,
+  csrfHeaders,
+  createBrokerageAccount,
+  placeOrderViaApi,
+} from './helpers/test-helpers';
 
 // Coverage for spec-071 (return metrics UI, Investing > Analytics) and
 // spec-072 (historical data UI, Net Worth > Add historical data).
@@ -42,40 +32,34 @@ test.describe('Investing Return Metrics & Net Worth Historical Data E2E Flow', (
   });
 
   test('shows return metrics for an open position and toggles to exited positions', async ({ page }) => {
-    const accountRes = await page.request.post(`${API_BASE}/finance/accounts`, {
-      headers: await csrfHeaders(page),
-      data: { name: `Returns Brokerage ${randomUUID().slice(0, 8)}`, account_type: 'brokerage', default_currency_code: 'USD' },
-    });
-    expect(accountRes.status()).toBe(201);
-    const account = (await accountRes.json()) as { public_id: string };
+    const account = await createBrokerageAccount(
+      page,
+      `Returns Brokerage ${randomUUID().slice(0, 8)}`,
+      'USD',
+    );
 
-    const cashRes = await page.request.post(`${API_BASE}/investing/cash-balances`, {
+    const cashRes = await page.request.post(`${apiV1()}/investing/cash-balances`, {
       headers: await csrfHeaders(page),
       data: { account_id: account.public_id, balance: '5000', currency: 'USD', as_of: new Date().toISOString() },
     });
     expect(cashRes.status()).toBe(201);
 
-    const orderRes = await page.request.post(`${API_BASE}/investing/orders`, {
-      headers: await csrfHeaders(page),
-      data: {
-        account_id: account.public_id,
-        order_type: 'buy',
-        symbol: 'MSFT',
-        quantity: '5',
-        price_per_unit: '100.00',
-        currency: 'USD',
-        brokerage_fee: '0',
-        occurred_at: new Date().toISOString(),
-      },
+    await placeOrderViaApi(page, {
+      account_id: account.public_id,
+      order_type: 'buy',
+      symbol: 'MSFT',
+      quantity: '5',
+      price_per_unit: '100.00',
+      currency: 'USD',
+      brokerage_fee: '0',
     });
-    expect(orderRes.status()).toBe(201);
 
     // Price above cost gives the return metrics panel a nonzero unrealized gain to show.
-    const holdingsRes = await page.request.get(`${API_BASE}/investing/holdings?limit=200&offset=0`, {
+    const holdingsRes = await page.request.get(`${apiV1()}/investing/holdings?limit=200&offset=0`, {
       headers: await csrfHeaders(page),
     });
     const holding = (await holdingsRes.json()).items.find((h: { symbol: string }) => h.symbol === 'MSFT');
-    await page.request.post(`${API_BASE}/investing/prices`, {
+    await page.request.post(`${apiV1()}/investing/prices`, {
       headers: await csrfHeaders(page),
       data: {
         price_date: new Date().toISOString().slice(0, 10),

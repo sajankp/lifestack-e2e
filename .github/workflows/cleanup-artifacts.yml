@@ -1,0 +1,25 @@
+name: Weekly Artifact Cleanup
+
+# Removes old Playwright report artifacts to prevent storage bloat.
+# Nightly runs (schedule trigger) retain for 7 days; PR/on-demand for 30 days.
+# This weekly cleanup catches any artifacts that weren't auto-expired.
+
+on:
+  schedule:
+    - cron: '0 4 * * 0' # Sundays 04:00 UTC (after nightly run)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete old artifacts
+        uses: c-hive/gha-remove-artifacts@v2
+        with:
+          age: '7 days'
+          skip-recent: 5
+          types: |
+            playwright-report

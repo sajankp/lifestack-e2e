@@ -1,112 +1,12 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
-
-const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
-const API_BASE = PLAYWRIGHT_API_URL.endsWith('/v1') ? PLAYWRIGHT_API_URL : `${PLAYWRIGHT_API_URL}/v1`;
-
-type Account = {
-  public_id: string;
-  name: string;
-  account_type: string;
-  default_currency_code: string;
-};
-
-type InvestingOrder = {
-  public_id: string;
-  order_type: string;
-  symbol: string;
-  quantity: string;
-  price_per_unit: string;
-  net_amount: string;
-  realized_gain_loss: string | null;
-};
-
-async function csrfHeaders(page: Page) {
-  const state = await page.context().storageState();
-  const csrfCookie = state.cookies.find((c) => c.name === 'csrf_token');
-  expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
-  if (!csrfCookie) {
-    throw new Error('CSRF token cookie is missing');
-  }
-  const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
-  return {
-    Origin: origin,
-    Referer: `${origin}/`,
-    'X-CSRF-Token': csrfCookie.value,
-  };
-}
-
-async function createBrokerageAccount(page: Page, name: string, currency: string): Promise<Account> {
-  const res = await page.request.post(`${API_BASE}/finance/accounts`, {
-    headers: await csrfHeaders(page),
-    data: { name, account_type: 'brokerage', default_currency_code: currency },
-  });
-  expect(res.status(), `Brokerage account creation failed: ${await res.text()}`).toBe(201);
-  return (await res.json()) as Account;
-}
-
-async function createSpendingAccount(page: Page, name: string, currency: string): Promise<Account> {
-  const res = await page.request.post(`${API_BASE}/finance/accounts`, {
-    headers: await csrfHeaders(page),
-    data: { name, account_type: 'bank', default_currency_code: currency },
-  });
-  expect(res.status(), `Bank account creation failed: ${await res.text()}`).toBe(201);
-  return (await res.json()) as Account;
-}
-
-async function transferCash(
-  page: Page,
-  fromAccountId: string,
-  toAccountId: string,
-  amount: string,
-  currency: string,
-): Promise<void> {
-  const res = await page.request.post(`${API_BASE}/finance/transfers`, {
-    headers: await csrfHeaders(page),
-    data: {
-      from_account_id: fromAccountId,
-      to_account_id: toAccountId,
-      from_module: 'spending',
-      to_module: 'investing',
-      gross_amount: amount,
-      net_amount_received: amount,
-      from_currency_code: currency,
-      to_currency_code: currency,
-      occurred_at: new Date().toISOString(),
-    },
-  });
-  expect(res.status(), `Transfer failed: ${await res.text()}`).toBe(201);
-}
-
-async function placeOrderViaApi(
-  page: Page,
-  data: {
-    account_id: string;
-    order_type: string;
-    symbol: string;
-    quantity: string;
-    price_per_unit: string;
-    currency: string;
-    brokerage_fee?: string;
-    occurred_at?: string;
-  },
-): Promise<InvestingOrder> {
-  const res = await page.request.post(`${API_BASE}/investing/orders`, {
-    headers: await csrfHeaders(page),
-    data: {
-      account_id: data.account_id,
-      order_type: data.order_type,
-      symbol: data.symbol,
-      quantity: data.quantity,
-      price_per_unit: data.price_per_unit,
-      currency: data.currency,
-      brokerage_fee: data.brokerage_fee ?? '0',
-      occurred_at: data.occurred_at ?? new Date().toISOString(),
-    },
-  });
-  expect(res.status(), `Order placement failed: ${await res.text()}`).toBe(201);
-  return (await res.json()) as InvestingOrder;
-}
+import {
+  createBrokerageAccount,
+  createSpendingAccount,
+  transferCash,
+  placeOrderViaApi,
+  type Account,
+} from './helpers/test-helpers';
 
 test.describe('Investing Orders E2E Flow', () => {
   let testEmail: string;

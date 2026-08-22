@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 import type { Locator } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 import { triggerRecurringTransactions } from './helpers/e2e-hooks';
+import { apiV1 } from './helpers/test-helpers';
 
 test.describe('Spending Recurring Transactions E2E Flow', () => {
   let testEmail = '';
@@ -117,9 +118,8 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
     await expect
       .poll(
         async () => {
-          const apiBase = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8001';
           const response = await page.request.get(
-            `${apiBase}/v1/spending/transactions?limit=50&offset=0`
+            `${apiV1()}/spending/transactions?limit=50&offset=0`
           );
           if (!response.ok()) {
             return false;

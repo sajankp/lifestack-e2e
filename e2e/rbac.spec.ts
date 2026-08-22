@@ -15,11 +15,8 @@
  * requests made after `page.goto('/login')` are authenticated correctly.
  */
 
-import { test, expect } from '@playwright/test';
-import { registerAndLogin } from './helpers/auth';
-
-const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
-const API_BASE = PLAYWRIGHT_API_URL.endsWith('/v1') ? PLAYWRIGHT_API_URL : `${PLAYWRIGHT_API_URL}/v1`;
+import { test, expect, type APIRequestContext } from '@playwright/test';
+import { apiV1, csrfHeaders } from './helpers/test-helpers';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,30 +30,19 @@ function makeCredentials(role: string) {
   };
 }
 
-async function getHeaders(request: import('@playwright/test').APIRequestContext) {
-  const state = await request.storageState();
-  const csrfCookie = state.cookies.find((c) => c.name === 'csrf_token');
-  const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
-  return {
-    'Origin': origin,
-    'Referer': `${origin}/`,
-    ...(csrfCookie ? { 'X-CSRF-Token': csrfCookie.value } : {}),
-  };
-}
-
 /**
  * Login via the backend API directly (not the UI) to get an authenticated
  * cookie session on the page's request context.
  */
 async function loginViaApi(
-  request: import('@playwright/test').APIRequestContext,
+  request: APIRequestContext,
   email: string,
   password: string,
 ): Promise<void> {
   const params = new URLSearchParams({ username: email, password });
   let lastRes: import('@playwright/test').APIResponse | undefined;
   for (let attempt = 0; attempt < 3; attempt++) {
-    lastRes = await request.post(`${API_BASE}/auth/login`, {
+    lastRes = await request.post(`${apiV1()}/auth/login`, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       data: params.toString(),
     });
@@ -72,10 +58,10 @@ async function loginViaApi(
 
 /** Register via API, returns the new user's public_id and workspace_id. */
 async function registerViaApi(
-  request: import('@playwright/test').APIRequestContext,
+  request: APIRequestContext,
   creds: { email: string; username: string; password: string },
 ): Promise<{ userId: string; workspaceId: string }> {
-  const res = await request.post(`${API_BASE}/auth/register`, {
+  const res = await request.post(`${apiV1()}/auth/register`, {
     data: { email: creds.email, username: creds.username, password: creds.password },
   });
   expect([200, 201], `Register failed: ${await res.text()}`).toContain(res.status());
@@ -83,11 +69,11 @@ async function registerViaApi(
   // Use loginViaApi which handles database commit retries
   await loginViaApi(request, creds.email, creds.password);
 
-  const meRes = await request.get(`${API_BASE}/auth/me`);
+  const meRes = await request.get(`${apiV1()}/auth/me`);
   expect(meRes.status()).toBe(200);
   const meBody = (await meRes.json()) as { public_id: string };
 
-  const wsRes = await request.get(`${API_BASE}/platform/workspaces/`);
+  const wsRes = await request.get(`${apiV1()}/platform/workspaces/`);
   const wsBody = (await wsRes.json()) as { items?: Array<{ public_id: string }> };
   return { userId: meBody.public_id, workspaceId: wsBody.items?.[0]?.public_id ?? '' };
 }
@@ -108,14 +94,14 @@ test.describe('Workspace RBAC enforcement @rbac', () => {
 
     // 3. Login as owner, invite viewer with VIEWER role
     await loginViaApi(request, ownerCreds.email, ownerCreds.password);
-    const wsRes = await request.get(`${API_BASE}/platform/workspaces/`);
+    const wsRes = await request.get(`${apiV1()}/platform/workspaces/`);
     const wsBody = (await wsRes.json()) as { items?: Array<{ public_id: string }> };
     const workspaceId = wsBody.items?.[0]?.public_id;
     expect(workspaceId, 'Owner must have at least one workspace').toBeTruthy();
 
     // Invite viewer to workspace with VIEWER role
-    const inviteRes = await request.post(`${API_BASE}/platform/workspaces/${workspaceId}/members`, {
-      headers: await getHeaders(request),
+    const inviteRes = await request.post(`${apiV1()}/platform/workspaces/${workspaceId}/members`, {
+      headers: await csrfHeaders(request),
       data: { user_public_id: viewerPublicId, role: 'viewer' },
     });
     // Accept 200 or 201 for the invite
@@ -125,20 +111,20 @@ test.describe('Workspace RBAC enforcement @rbac', () => {
     await loginViaApi(request, viewerCreds.email, viewerCreds.password);
 
     // Switch to viewer's workspace context (must select the shared workspace)
-    const viewerWsRes = await request.get(`${API_BASE}/platform/workspaces/`);
+    const viewerWsRes = await request.get(`${apiV1()}/platform/workspaces/`);
     const viewerWsBody = (await viewerWsRes.json()) as { items?: Array<{ public_id: string }> };
     const sharedWs = viewerWsBody.items?.find((w) => w.public_id === workspaceId);
     expect(sharedWs, 'Viewer should see the shared workspace').toBeTruthy();
 
     // Switch to the shared workspace
-    const switchRes = await request.post(`${API_BASE}/platform/workspaces/${workspaceId}/select`, {
-      headers: await getHeaders(request),
+    const switchRes = await request.post(`${apiV1()}/platform/workspaces/${workspaceId}/select`, {
+      headers: await csrfHeaders(request),
     });
     expect([200, 204]).toContain(switchRes.status());
 
     // 5. Attempt to create a transaction — must be rejected with 403
-    const txRes = await request.post(`${API_BASE}/spending/transactions/`, {
-      headers: await getHeaders(request),
+    const txRes = await request.post(`${apiV1()}/spending/transactions/`, {
+      headers: await csrfHeaders(request),
       data: {
         amount: '10.00',
         description: 'RBAC test transaction',
@@ -159,8 +145,8 @@ test.describe('Workspace RBAC enforcement @rbac', () => {
     await loginViaApi(request, memberCreds.email, memberCreds.password);
 
     // Create a todo item
-    const todoRes = await request.post(`${API_BASE}/todo/`, {
-      headers: await getHeaders(request),
+    const todoRes = await request.post(`${apiV1()}/todo/`, {
+      headers: await csrfHeaders(request),
       data: {
         title: 'RBAC Member Todo',
         priority: 'medium',
@@ -171,7 +157,7 @@ test.describe('Workspace RBAC enforcement @rbac', () => {
     expect([200, 201], `Todo creation failed: ${await todoRes.text()}`).toContain(todoRes.status());
 
     // Read todos back
-    const listRes = await request.get(`${API_BASE}/todo/`);
+    const listRes = await request.get(`${apiV1()}/todo/`);
     expect(listRes.status()).toBe(200);
     const listBody = (await listRes.json()) as { items?: Array<{ title: string }> };
     const created = listBody.items?.find((t) => t.title === 'RBAC Member Todo');
@@ -188,20 +174,20 @@ test.describe('Workspace RBAC enforcement @rbac', () => {
 
     // Invite viewer with viewer role
     await loginViaApi(request, ownerCreds.email, ownerCreds.password);
-    await request.post(`${API_BASE}/platform/workspaces/${workspaceId}/members`, {
-      headers: await getHeaders(request),
+    await request.post(`${apiV1()}/platform/workspaces/${workspaceId}/members`, {
+      headers: await csrfHeaders(request),
       data: { user_public_id: viewerPublicId, role: 'viewer' },
     });
 
     // Login as viewer, switch workspace
     await loginViaApi(request, viewerCreds.email, viewerCreds.password);
-    await request.post(`${API_BASE}/platform/workspaces/${workspaceId}/select`, {
-      headers: await getHeaders(request),
+    await request.post(`${apiV1()}/platform/workspaces/${workspaceId}/select`, {
+      headers: await csrfHeaders(request),
     });
 
     // Attempt to update workspace finance settings — must be 403 (requires ADMIN)
-    const settingsRes = await request.patch(`${API_BASE}/finance/settings`, {
-      headers: await getHeaders(request),
+    const settingsRes = await request.patch(`${apiV1()}/finance/settings`, {
+      headers: await csrfHeaders(request),
       data: { reporting_currency_code: 'EUR' },
     });
     expect(settingsRes.status()).toBe(403);
@@ -215,8 +201,8 @@ test.describe('Workspace RBAC enforcement @rbac', () => {
     await loginViaApi(request, ownerCreds.email, ownerCreds.password);
 
     // Attempt to update workspace finance settings — must succeed (200/204)
-    const settingsRes = await request.patch(`${API_BASE}/finance/settings`, {
-      headers: await getHeaders(request),
+    const settingsRes = await request.patch(`${apiV1()}/finance/settings`, {
+      headers: await csrfHeaders(request),
       data: { reporting_currency_code: 'GBP' },
     });
     expect([200, 204], `Settings update failed: ${await settingsRes.text()}`).toContain(

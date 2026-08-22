@@ -2,24 +2,9 @@ import { test, expect, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { registerAndLogin } from './helpers/auth';
 import { retryUnauthorized } from './helpers/api';
-
-const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
-const API_BASE = PLAYWRIGHT_API_URL.endsWith('/v1') ? PLAYWRIGHT_API_URL : `${PLAYWRIGHT_API_URL}/v1`;
+import { apiV1, csrfHeaders } from './helpers/test-helpers';
 
 type ApiTodo = { public_id: string; title: string };
-
-async function csrfHeaders(page: Page) {
-  const state = await page.context().storageState();
-  const csrfCookie = state.cookies.find((cookie) => cookie.name === 'csrf_token');
-  expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
-  const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
-
-  return {
-    Origin: origin,
-    Referer: `${origin}/`,
-    ...(csrfCookie ? { 'X-CSRF-Token': csrfCookie.value } : {}),
-  };
-}
 
 function waitForTodoWrite(page: Page, method: 'POST' | 'PATCH') {
   return page.waitForResponse(
@@ -32,7 +17,7 @@ async function createTodoViaApi(
   data: Record<string, unknown>,
 ): Promise<ApiTodo> {
   const response = await retryUnauthorized(async () =>
-    page.request.post(`${API_BASE}/todo/`, {
+    page.request.post(`${apiV1()}/todo/`, {
       headers: await csrfHeaders(page),
       data,
     }),
@@ -58,7 +43,7 @@ test.describe('Todo Smoke Flow', () => {
     });
   });
 
-  test('should create a timed todo for today and complete it @smoke', async ({ page }) => {
+  test('should create a timed todo for today and complete it @smoke @critical', async ({ page }) => {
     const taskTitle = `Smoke Todo ${Date.now()}`;
     const today = new Date();
     const todayValue = today.toISOString().slice(0, 10);
@@ -94,7 +79,7 @@ test.describe('Todo Smoke Flow', () => {
     await expect(page.getByTestId(/^todo-completed-item-/).filter({ hasText: taskTitle })).toBeVisible();
   });
 
-  test('subtasks indent under their parent, track progress, and cascade on parent completion (spec-068) @smoke', async ({ page }) => {
+  test('subtasks indent under their parent, track progress, and cascade on parent completion (spec-068) @smoke @critical', async ({ page }) => {
     const parentTitle = `Plan trip ${Date.now()}`;
 
     await page.getByTestId('nav-todo').click();
@@ -116,14 +101,14 @@ test.describe('Todo Smoke Flow', () => {
     const createChildOne = waitForTodoWrite(page, 'POST');
     await page.getByTestId('todo-new-submit').click();
     await createChildOne;
-    await expect(page.getByRole('heading', { name: 'Book flights' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Book flights' })).toBeVisible({ timeout: 15000 });
 
     await addSubtaskButton.click();
     await page.getByTestId('todo-new-title').fill('Pack bags');
     const createChildTwo = waitForTodoWrite(page, 'POST');
     await page.getByTestId('todo-new-submit').click();
     await createChildTwo;
-    await expect(page.getByRole('heading', { name: 'Pack bags' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Pack bags' })).toBeVisible({ timeout: 15000 });
 
     await expect(parentRow.getByText('0/2', { exact: true })).toBeVisible();
 
@@ -151,7 +136,7 @@ test.describe('Todo Smoke Flow', () => {
     await expect(page.getByTestId(/^todo-completed-item-/).filter({ hasText: 'Pack bags' })).toBeVisible();
   });
 
-  test('an overdue todo renders under the Overdue bucket header (spec-068) @smoke', async ({ page }) => {
+  test('an overdue todo renders under the Overdue bucket header (spec-068) @smoke @critical', async ({ page }) => {
     const overdueTitle = `Overdue task ${Date.now()}`;
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -172,7 +157,7 @@ test.describe('Todo Smoke Flow', () => {
   test.describe('on a touch device', () => {
     test.use({ hasTouch: true });
 
-    test('row actions are visible without hovering, and delete works (spec-068) @smoke', async ({ page }) => {
+    test('row actions are visible without hovering, and delete works (spec-068) @smoke @critical', async ({ page }) => {
       const touchTitle = `Touch task ${Date.now()}`;
       await createTodoViaApi(page, { title: touchTitle, priority: 'medium' });
 

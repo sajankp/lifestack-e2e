@@ -5,7 +5,7 @@ const executablePath = process.env.PLAYWRIGHT_EXECUTABLE_PATH;
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
-  workers: 1, // Run sequentially to avoid database race conditions
+  workers: 1, // Run sequentially for database isolation to prevent race conditions and state conflicts across tests
   timeout: 120_000,
   retries: 1,
   // CI gate (Task 4): 'html' produces the playwright-report/ directory the

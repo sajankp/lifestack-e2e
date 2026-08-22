@@ -6,7 +6,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 test.describe('Authentication and User Registration Flow', () => {
   const testPassword = 'Password123!';
 
-  test('should register, login, and logout successfully @smoke', async ({ page, baseURL }) => {
+  test('should register, login, and logout successfully @smoke @critical', async ({ page, baseURL }) => {
     const uniqueId = randomUUID();
     const testEmail = `e2e-user-${uniqueId}@example.com`;
     const testUsername = `e2euser_${uniqueId.replace(/-/g, '_')}`;
@@ -29,13 +29,20 @@ test.describe('Authentication and User Registration Flow', () => {
         await expect(page).toHaveURL(/.*\/register/);
       }
 
-      await page.fill('input[placeholder="Email address"]', testEmail);
+      const emailInput = page.locator('input[placeholder="Email address"]');
       await page.fill('input[placeholder="Username"]', testUsername);
       await page.fill('input[placeholder="Password"]', testPassword);
+      // Keep the email fill last and verify the controlled input retained it;
+      // the register form can re-render while its initial data is loading.
+      await emailInput.fill(testEmail);
+      await expect(emailInput).toHaveValue(testEmail);
       const registerResponsePromise = page.waitForResponse(
         (response) => response.url().includes('/auth/register') && response.request().method() === 'POST',
       );
-      await page.click('button[type="submit"]');
+      await Promise.all([
+        registerResponsePromise,
+        page.click('button[type="submit"]'),
+      ]);
       const registerResponse = await registerResponsePromise;
 
       if (registerResponse.ok()) {

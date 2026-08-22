@@ -15,6 +15,12 @@ name: CI Pipeline
 # README.md "CI" section) rather than a guessed, silently-broken hookup.
 # Interim: workflow_dispatch below covers on-demand runs after an api/web
 # merge; nightly cron is the backstop that catches drift within 24h either way.
+#
+# Critical-path tests: tagged with @critical — run via workflow_dispatch with
+# suite=critical for fast regression validation.
+#
+# Artifact retention: nightly runs retain for 7 days; PR/on-demand for 30 days.
+# Weekly cleanup workflow removes old artifacts.
 
 on:
   pull_request:
@@ -35,6 +41,7 @@ on:
         options:
           - smoke
           - full
+          - critical
 
 jobs:
   dependency-audit:
@@ -126,10 +133,21 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "npm_script=test:local:smoke" >> "$GITHUB_OUTPUT"
+            echo "retention_days=30" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.suite }}" = "smoke" ]; then
             echo "npm_script=test:local:smoke" >> "$GITHUB_OUTPUT"
+            echo "retention_days=30" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.suite }}" = "critical" ]; then
+            echo "npm_script=test:local:critical" >> "$GITHUB_OUTPUT"
+            echo "retention_days=30" >> "$GITHUB_OUTPUT"
           else
+            # push to main or nightly cron
             echo "npm_script=test:local" >> "$GITHUB_OUTPUT"
+            if [ "${{ github.event_name }}" = "schedule" ]; then
+              echo "retention_days=7" >> "$GITHUB_OUTPUT"
+            else
+              echo "retention_days=30" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - name: Run E2E tests
@@ -151,4 +169,4 @@ jobs:
           path: |
             lifestack-e2e/playwright-report/
             lifestack-e2e/test-results/
-          retention-days: 30
+          retention-days: ${{ steps.suite.outputs.retention_days }}

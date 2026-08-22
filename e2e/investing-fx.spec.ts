@@ -1,47 +1,20 @@
 import { test, expect, type Page } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
-
-const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8001';
-const API_BASE = PLAYWRIGHT_API_URL.endsWith('/v1') ? PLAYWRIGHT_API_URL : `${PLAYWRIGHT_API_URL}/v1`;
-
-type Account = {
-  public_id: string;
-  name: string;
-  account_type: string;
-  default_currency_code: string;
-};
+import {
+  apiV1,
+  createBrokerageAccount,
+  csrfHeaders,
+  placeOrderViaApi,
+  type Account,
+} from './helpers/test-helpers';
 
 const selectOption = async (page: Page, triggerTestId: string, optionName: string) => {
   await page.getByTestId(triggerTestId).click();
   await page.getByRole('option', { name: optionName, exact: true }).click();
 };
 
-async function csrfHeaders(page: Page) {
-  const state = await page.context().storageState();
-  const csrfCookie = state.cookies.find((c) => c.name === 'csrf_token');
-  expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
-  if (!csrfCookie) {
-    throw new Error('CSRF token cookie is missing');
-  }
-  const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
-  return {
-    Origin: origin,
-    Referer: `${origin}/`,
-    'X-CSRF-Token': csrfCookie.value,
-  };
-}
-
-async function createBrokerageAccount(page: Page, name: string, currency: string): Promise<Account> {
-  const res = await page.request.post(`${API_BASE}/finance/accounts`, {
-    headers: await csrfHeaders(page),
-    data: { name, account_type: 'brokerage', default_currency_code: currency },
-  });
-  expect(res.status(), `Brokerage account creation failed: ${await res.text()}`).toBe(201);
-  return (await res.json()) as Account;
-}
-
 async function fundCashBalance(page: Page, accountId: string, balance: string, currency: string): Promise<void> {
-  const res = await page.request.post(`${API_BASE}/investing/cash-balances`, {
+  const res = await page.request.post(`${apiV1()}/investing/cash-balances`, {
     headers: await csrfHeaders(page),
     data: {
       account_id: accountId,
@@ -54,42 +27,15 @@ async function fundCashBalance(page: Page, accountId: string, balance: string, c
 }
 
 async function seedFxRate(page: Page, base: string, quote: string, rate: string): Promise<void> {
-  const res = await page.request.post(`${API_BASE}/e2e/fx-rates`, {
+  const res = await page.request.post(`${apiV1()}/e2e/fx-rates`, {
     headers: await csrfHeaders(page),
     data: { base_currency_code: base, quote_currency_code: quote, rate },
   });
   expect(res.status(), `FX rate seed failed: ${await res.text()}`).toBe(200);
 }
 
-async function placeOrderViaApi(
-  page: Page,
-  data: {
-    account_id: string;
-    order_type: string;
-    symbol: string;
-    quantity: string;
-    price_per_unit: string;
-    currency: string;
-  },
-): Promise<void> {
-  const res = await page.request.post(`${API_BASE}/investing/orders`, {
-    headers: await csrfHeaders(page),
-    data: {
-      account_id: data.account_id,
-      order_type: data.order_type,
-      symbol: data.symbol,
-      quantity: data.quantity,
-      price_per_unit: data.price_per_unit,
-      currency: data.currency,
-      brokerage_fee: '0',
-      occurred_at: new Date().toISOString(),
-    },
-  });
-  expect(res.status(), `Order placement failed: ${await res.text()}`).toBe(201);
-}
-
 async function submitCurrentPrice(page: Page, symbol: string, unitPrice: string): Promise<void> {
-  const holdingsRes = await page.request.get(`${API_BASE}/investing/holdings?limit=200&offset=0`, {
+  const holdingsRes = await page.request.get(`${apiV1()}/investing/holdings?limit=200&offset=0`, {
     headers: await csrfHeaders(page),
   });
   expect(holdingsRes.status(), `Holdings lookup failed: ${await holdingsRes.text()}`).toBe(200);
@@ -100,7 +46,7 @@ async function submitCurrentPrice(page: Page, symbol: string, unitPrice: string)
     throw new Error(`Holding for symbol ${symbol} should exist`);
   }
 
-  const priceRes = await page.request.post(`${API_BASE}/investing/prices`, {
+  const priceRes = await page.request.post(`${apiV1()}/investing/prices`, {
     headers: await csrfHeaders(page),
     data: {
       price_date: new Date().toISOString().slice(0, 10),
@@ -183,7 +129,7 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     await submitCurrentPrice(page, 'AAPL', '150.00');
 
     // Configure reporting currency to USD via API request sharing session cookies
-    const settingsResponse = await page.request.patch(`${API_BASE}/finance/settings`, {
+    const settingsResponse = await page.request.patch(`${apiV1()}/finance/settings`, {
       headers: await csrfHeaders(page),
       data: {
         reporting_currency_code: 'USD',

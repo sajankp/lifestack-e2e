@@ -22,6 +22,9 @@ function run(command, args, options = {}) {
     process.exit(result.status === null ? 1 : result.status);
   }
 }
+
+// FX rates are seeded via inline Python script to avoid cross-repo file dependencies.
+// The api-e2e container is built from lifestack-api and has the necessary imports.
 const seedScript = `
 import asyncio
 from datetime import datetime, UTC

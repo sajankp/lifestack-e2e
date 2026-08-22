@@ -2,13 +2,9 @@
  * Voice Agent Widget / Capture Flow E2E Verification Suite
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type APIRequestContext } from '@playwright/test';
 import { retryUnauthorized } from './helpers/api';
-
-function getApiBase(): string {
-  const url = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8001';
-  return url.endsWith('/v1') ? url : `${url}/v1`;
-}
+import { apiV1, csrfHeaders } from './helpers/test-helpers';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -21,32 +17,20 @@ function makeCredentials(role: string) {
   };
 }
 
-async function getHeaders(context: import('@playwright/test').BrowserContext) {
-  const state = await context.storageState();
-  const csrfCookie = state.cookies.find((c) => c.name === 'csrf_token');
-  expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
-  const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
-  return {
-    'Origin': origin,
-    'Referer': `${origin}/`,
-    ...(csrfCookie ? { 'X-CSRF-Token': csrfCookie.value } : {}),
-  };
-}
-
 async function loginViaApi(
-  request: import('@playwright/test').APIRequestContext,
+  request: APIRequestContext,
   email: string,
   password: string,
 ): Promise<void> {
   const params = new URLSearchParams({ username: email, password });
   let lastRes: import('@playwright/test').APIResponse | undefined;
   for (let attempt = 0; attempt < 3; attempt++) {
-    lastRes = await request.post(`${getApiBase()}/auth/login`, {
+    lastRes = await request.post(`${apiV1()}/auth/login`, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       data: params.toString(),
     });
     if (lastRes.status() === 200) {
-      await retryUnauthorized(() => request.get(`${getApiBase()}/auth/me`));
+      await retryUnauthorized(() => request.get(`${apiV1()}/auth/me`));
       return;
     }
     await new Promise((resolve) => setTimeout(resolve, 150));
@@ -56,22 +40,22 @@ async function loginViaApi(
 }
 
 async function registerViaApi(
-  request: import('@playwright/test').APIRequestContext,
+  request: APIRequestContext,
   creds: { email: string; username: string; password: string },
 ): Promise<{ userId: string; workspaceId: string }> {
-  const res = await request.post(`${getApiBase()}/auth/register`, {
+  const res = await request.post(`${apiV1()}/auth/register`, {
     data: { email: creds.email, username: creds.username, password: creds.password },
   });
   expect([200, 201], `Register failed: ${await res.text()}`).toContain(res.status());
   
   await loginViaApi(request, creds.email, creds.password);
  
-  const meRes = await retryUnauthorized(() => request.get(`${getApiBase()}/auth/me`));
+  const meRes = await retryUnauthorized(() => request.get(`${apiV1()}/auth/me`));
   expect(meRes.status()).toBe(200);
   const meBody = (await meRes.json()) as { public_id: string };
 
   const wsRes = await retryUnauthorized(
-    () => request.get(`${getApiBase()}/platform/workspaces/`),
+    () => request.get(`${apiV1()}/platform/workspaces/`),
   );
   expect(wsRes.status()).toBe(200);
   const wsBody = (await wsRes.json()) as { items?: Array<{ public_id: string }> };
@@ -91,16 +75,16 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     const { userId: viewerPublicId } = await registerViaApi(page.request, viewerCreds);
 
     await loginViaApi(page.request, ownerCreds.email, ownerCreds.password);
-    const inviteRes = await page.request.post(`${getApiBase()}/platform/workspaces/${workspaceId}/members`, {
-      headers: await getHeaders(page.context()),
+    const inviteRes = await page.request.post(`${apiV1()}/platform/workspaces/${workspaceId}/members`, {
+      headers: await csrfHeaders(page.context()),
       data: { user_public_id: viewerPublicId, role: 'viewer' },
     });
     expect([200, 201]).toContain(inviteRes.status());
 
     // 2. Login as viewer and select shared workspace
     await loginViaApi(page.request, viewerCreds.email, viewerCreds.password);
-    const selectRes = await page.request.post(`${getApiBase()}/platform/workspaces/${workspaceId}/select`, {
-      headers: await getHeaders(page.context()),
+    const selectRes = await page.request.post(`${apiV1()}/platform/workspaces/${workspaceId}/select`, {
+      headers: await csrfHeaders(page.context()),
     });
     expect([200, 204]).toContain(selectRes.status());
 

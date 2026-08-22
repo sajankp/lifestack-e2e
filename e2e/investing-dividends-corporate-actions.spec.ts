@@ -1,22 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
-
-const PLAYWRIGHT_API_URL = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:8000';
-const API_BASE = PLAYWRIGHT_API_URL.endsWith('/v1') ? PLAYWRIGHT_API_URL : `${PLAYWRIGHT_API_URL}/v1`;
-
-async function csrfHeaders(page: Page) {
-  const state = await page.context().storageState();
-  const csrfCookie = state.cookies.find((c) => c.name === 'csrf_token');
-  expect(csrfCookie, 'CSRF token cookie should be defined').toBeDefined();
-  if (!csrfCookie) throw new Error('CSRF token cookie is missing');
-  const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174';
-  return {
-    Origin: origin,
-    Referer: `${origin}/`,
-    'X-CSRF-Token': csrfCookie.value,
-  };
-}
+import {
+  apiV1,
+  csrfHeaders,
+  createBrokerageAccount,
+  placeOrderViaApi,
+} from './helpers/test-helpers';
 
 // Coverage for spec-073 (dividend/income entry) and spec-008 (corporate
 // actions UI), both shipped on the Investing page's Cash and Orders tabs.
@@ -38,37 +28,32 @@ test.describe('Investing Dividends & Corporate Actions E2E Flow', () => {
       password: testPassword,
     });
 
-    const accountRes = await page.request.post(`${API_BASE}/finance/accounts`, {
-      headers: await csrfHeaders(page),
-      data: { name: `Brokerage ${uniqueId.slice(0, 8)}`, account_type: 'brokerage', default_currency_code: 'USD' },
-    });
-    expect(accountRes.status()).toBe(201);
-    brokerageAccountId = (await accountRes.json()).public_id;
+    const account = await createBrokerageAccount(
+      page,
+      `Brokerage ${uniqueId.slice(0, 8)}`,
+      'USD',
+    );
+    brokerageAccountId = account.public_id;
 
-    const cashRes = await page.request.post(`${API_BASE}/investing/cash-balances`, {
+    const cashRes = await page.request.post(`${apiV1()}/investing/cash-balances`, {
       headers: await csrfHeaders(page),
       data: { account_id: brokerageAccountId, balance: '5000', currency: 'USD', as_of: new Date().toISOString() },
     });
     expect(cashRes.status()).toBe(201);
 
     // Seed a holding so the corporate-action preview has units to replay against.
-    const orderRes = await page.request.post(`${API_BASE}/investing/orders`, {
-      headers: await csrfHeaders(page),
-      data: {
-        account_id: brokerageAccountId,
-        order_type: 'buy',
-        symbol,
-        quantity: '10',
-        price_per_unit: '100.00',
-        currency: 'USD',
-        brokerage_fee: '0',
-        occurred_at: new Date().toISOString(),
-      },
+    await placeOrderViaApi(page, {
+      account_id: brokerageAccountId,
+      order_type: 'buy',
+      symbol,
+      quantity: '10',
+      price_per_unit: '100.00',
+      currency: 'USD',
+      brokerage_fee: '0',
     });
-    expect(orderRes.status()).toBe(201);
   });
 
-  test('records a dividend and deletes it @smoke', async ({ page }) => {
+  test('records a dividend and deletes it @smoke @critical', async ({ page }) => {
     await page.getByTestId('nav-investing').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
     await page.getByTestId('investing-tab-cash').click();

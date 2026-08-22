@@ -9,7 +9,7 @@ The staging environment is orchestrated using Docker Compose (`docker-compose.e2
 - **Database (`postgres`)**: PostgreSQL 18 instance running on host port `5433` (internal port `5432`).
 - **Cache (`redis`)**: Redis 7-alpine instance running on host port `6381` (internal port `6379`).
 - **Backend API (`api-e2e`)**: FastAPI server running on host port `8001` (internal port `8000`), automatically connected to Postgres and Redis.
-- **Frontend UI (`web-e2e`)**: Vite/React server running on host port `5174` (internal port `5173`) running in `--mode e2e`.
+- **Frontend UI (`web-e2e`)**: Vite/React server running on host port `5174` (internal port `5173`) serving the production build via `npm run preview` (verifies build artifacts).
 
 ---
 
@@ -38,8 +38,10 @@ before spending time on a doomed run):
 ```bash
 npm run test:smoke        # @smoke-tagged subset only, assumes stack is already running + env vars set
 npm run test:full         # full suite, assumes stack is already running + env vars set
+npm run test:critical     # @critical-tagged subset (core flows), assumes stack is already running + env vars set
 npm run test:local        # full suite against the standard local ports (sets env vars for you)
 npm run test:local:smoke  # @smoke subset against the standard local ports
+npm run test:local:critical # @critical subset against the standard local ports
 npm run test:smoke:stack  # brings the stack up, runs @smoke, tears it down
 npm run test:full:stack   # brings the stack up, runs the full suite, tears it down
 ```
@@ -96,7 +98,9 @@ suite against it.
 
 **What runs when:**
 - **Pull requests**: `npm run test:local:smoke` — the `@smoke`-tagged subset only, for fast PR feedback.
-- **Push to `main`**, the **nightly cron** (03:00 UTC), and manual **`workflow_dispatch`** (default `full`, or pick `smoke`): `npm run test:local` — the full suite.
+- **Push to `main`**, the **nightly cron** (03:00 UTC): `npm run test:local` — the full suite (artifacts retained 7 days).
+- **Manual `workflow_dispatch`** (default `full`, or pick `smoke`, `critical`): runs the selected suite (artifacts retained 30 days).
+- **Critical-path validation**: `workflow_dispatch` with `suite=critical` runs `@critical`-tagged tests for fast regression checks.
 
 **Flakiness budget**: `playwright.config.ts` sets `retries: 1` globally. A
 spec that still fails after that retry in CI is a real regression, not noise —
@@ -108,6 +112,9 @@ and raw `test-results/` (screenshots + traces) are uploaded as the
 `playwright-report` artifact. Open the HTML report locally with
 `npx playwright show-report path/to/downloaded/playwright-report`, or a
 specific trace with `npx playwright show-trace path/to/trace.zip`.
+
+**Artifact retention**: PR/on-demand runs retain for 30 days; nightly cron runs retain for 7 days.
+A weekly cleanup workflow (`.github/workflows/cleanup-artifacts.yml`) removes stale artifacts.
 
 **Cross-repo triggering — known gap**: `lifestack-api` and `lifestack-web`'s
 own CI workflows do not currently dispatch a run of this workflow when they

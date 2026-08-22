@@ -23,7 +23,7 @@ test.describe('Custom Financial KPIs E2E Flow', () => {
     });
   });
 
-  test('creates a spend-total KPI, breaches its target, shows on dashboard, and deletes @smoke', async ({ page }) => {
+  test('creates a spend-total KPI, breaches its target, shows on dashboard, and deletes @smoke @critical', async ({ page }) => {
     const selectFromCombobox = async (trigger: Locator, optionName: string) => {
       await trigger.click();
       await page.getByRole('option', { name: optionName, exact: true }).click();
