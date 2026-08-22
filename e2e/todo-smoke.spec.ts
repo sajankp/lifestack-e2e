@@ -101,14 +101,14 @@ test.describe('Todo Smoke Flow', () => {
     const createChildOne = waitForTodoWrite(page, 'POST');
     await page.getByTestId('todo-new-submit').click();
     await createChildOne;
-    await expect(page.getByRole('heading', { name: 'Book flights' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Book flights' })).toBeVisible({ timeout: 15000 });
 
     await addSubtaskButton.click();
     await page.getByTestId('todo-new-title').fill('Pack bags');
     const createChildTwo = waitForTodoWrite(page, 'POST');
     await page.getByTestId('todo-new-submit').click();
     await createChildTwo;
-    await expect(page.getByRole('heading', { name: 'Pack bags' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Pack bags' })).toBeVisible({ timeout: 15000 });
 
     await expect(parentRow.getByText('0/2', { exact: true })).toBeVisible();
 

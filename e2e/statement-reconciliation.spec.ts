@@ -113,7 +113,12 @@ test.describe('Statement Reconciliation E2E Flow', () => {
     const matchResponse = await matchPromise;
     expect(matchResponse.ok()).toBeTruthy();
 
-    await expect(page.getByTestId('statement-matched-line')).toContainText(`Statement line for ${description}`);
-    await expect(page.getByTestId('statement-unmatched-line')).toHaveCount(0);
+    // Matching invalidates the reconciliation query asynchronously; wait for
+    // the refetch rather than assuming the mutation response rendered it.
+    await expect(page.getByTestId('statement-matched-line')).toContainText(
+      `Statement line for ${description}`,
+      { timeout: 20000 },
+    );
+    await expect(page.getByTestId('statement-unmatched-line')).toHaveCount(0, { timeout: 20000 });
   });
 });

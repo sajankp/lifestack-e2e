@@ -41,9 +41,14 @@ test.describe('Data Export Module E2E Flow', () => {
 
     // 4. Download the generated JSON artifact file and assert it contains correct structure
     const downloadRes = await context.request.get(`${apiV1()}/exports/${exportData.public_id}/download`);
-    expect(downloadRes.status()).toBe(200);
+    const downloadBody = await downloadRes.text();
+    expect(downloadRes.status(), `Export download failed: ${downloadBody}`).toBe(200);
     
-    const artifact = await downloadRes.json();
+    const artifact = JSON.parse(downloadBody) as {
+      schema_version?: unknown;
+      workspace_id?: unknown;
+      data: { todo?: unknown; spending?: unknown; investing?: unknown };
+    };
     expect(artifact.schema_version).toBeDefined();
     expect(artifact.workspace_id).toBeDefined();
     expect(artifact.data).toBeDefined();
