@@ -287,6 +287,124 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await expect(viewLink).toHaveAttribute('href', '/todo?id=abc-123-uuid');
   });
 
+  test('MEMBER can find, confirm, and update a spending transaction', async ({ page }) => {
+    const memberCreds = makeCredentials('transaction-correction');
+    await registerViaApi(page.request, memberCreds);
+
+    await page.addInitScript(() => {
+      const OriginalWebSocket = window.WebSocket;
+      class MockWebSocket {
+        static CONNECTING = 0;
+        static OPEN = 1;
+        static CLOSING = 2;
+        static CLOSED = 3;
+
+        url: string;
+        readyState = 0;
+        binaryType = 'blob';
+        onopen: (() => void) | null = null;
+        onmessage: ((event: { data: string }) => void) | null = null;
+        onerror: ((err: unknown) => void) | null = null;
+        onclose: ((event: { code: number; reason: string }) => void) | null = null;
+
+        constructor(url: string, protocols?: string | string[]) {
+          this.url = url;
+          if (!url.includes('/capture/agent/ws')) {
+            return new OriginalWebSocket(url, protocols) as any;
+          }
+          setTimeout(() => {
+            this.readyState = MockWebSocket.OPEN;
+            this.onopen?.();
+          }, 50);
+        }
+
+        send(data: string) {
+          const parsed = JSON.parse(data) as { type?: string; content?: string };
+          if (parsed.type !== 'text') return;
+
+          const confirming = (parsed.content || '').toLowerCase().includes('yes');
+          if (!confirming) {
+            setTimeout(() => {
+              this.triggerMessage({
+                type: 'transcript',
+                content: 'I found one lunch transaction for $25. Please confirm the change to $30.',
+              });
+              this.triggerMessage({
+                type: 'tool_call',
+                name: 'find_spending_transactions',
+                arguments: { from_day: '2026-08-22', search: 'lunch' },
+              });
+              this.triggerMessage({
+                type: 'tool_response',
+                name: 'find_spending_transactions',
+                status: 'success',
+                result: {
+                  status: 'success',
+                  total: 1,
+                  transactions: [{ entity_public_id: 'tx-123', amount: '25.00' }],
+                },
+              });
+            }, 150);
+            return;
+          }
+
+          setTimeout(() => {
+            this.triggerMessage({
+              type: 'tool_call',
+              name: 'update_spending_transaction',
+              arguments: { public_id: 'tx-123', amount: '30.00', confirmed: true },
+            });
+            this.triggerMessage({
+              type: 'tool_response',
+              name: 'update_spending_transaction',
+              status: 'success',
+              result: {
+                status: 'success',
+                entity_type: 'transaction',
+                entity_public_id: 'tx-123',
+                summary: 'Updated spending transaction tx-123',
+              },
+            });
+          }, 150);
+        }
+
+        close(code = 1000, reason = '') {
+          this.readyState = MockWebSocket.CLOSED;
+          this.onclose?.({ code, reason });
+        }
+
+        triggerMessage(payload: unknown) {
+          this.onmessage?.({
+            data: typeof payload === 'string' ? payload : JSON.stringify(payload),
+          });
+        }
+      }
+
+      window.WebSocket = MockWebSocket as any;
+    });
+
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.locator('#voice-agent-trigger').click();
+    const input = page.locator('input[placeholder*="Type a message"]');
+    await expect(input).toBeVisible();
+    await input.focus();
+
+    await input.fill('Find my lunch transaction and correct it to 30 dollars');
+    await input.press('Enter');
+    await expect(page.getByText(/I found one lunch transaction/)).toBeVisible();
+
+    await input.fill('Yes, update it');
+    await input.press('Enter');
+    const card = page.getByTestId('confirmation-card');
+    await expect(card).toBeVisible();
+    await expect(card.getByText('Spending', { exact: true })).toBeVisible();
+    await expect(card.getByText('Updated spending transaction tx-123')).toBeVisible();
+    await expect(card.getByRole('link', { name: 'View →' })).toHaveAttribute(
+      'href',
+      '/spending?tab=transactions',
+    );
+  });
+
   test('MEMBER receives and displays error event from WebSocket', async ({ page }) => {
     const memberCreds = makeCredentials('member');
     await registerViaApi(page.request, memberCreds);
