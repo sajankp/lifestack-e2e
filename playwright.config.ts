@@ -20,7 +20,6 @@ export default defineConfig({
     ...(executablePath ? { launchOptions: { executablePath } } : {}),
     extraHTTPHeaders: {
       'Origin': process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5174',
-      'X-Playwright-API-Base': process.env.PLAYWRIGHT_API_URL || 'http://localhost:8001',
     },
   },
   projects: [

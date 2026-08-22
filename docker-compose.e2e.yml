@@ -82,6 +82,8 @@ services:
     build:
       context: ../lifestack-web
       dockerfile: ../lifestack-e2e/Dockerfile.web-e2e
+      args:
+        VITE_API_URL: http://localhost:8001/v1
     ports:
       - "5174:5173"
     depends_on:
