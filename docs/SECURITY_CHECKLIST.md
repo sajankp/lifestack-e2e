@@ -23,6 +23,17 @@ Checklist for integration test environment and security-sensitive flow coverage.
 - [x] Web dependencies are installed at image-build time with `npm ci`, not at container startup.
 - [x] Spending workflow specs trigger local-only authenticated API hooks instead of running job code through container shell commands.
 - [x] `npm audit --audit-level=high` is available as `npm run security:audit` and runs in CI.
+- [ ] Cross-repo dispatch is end-to-end verified. API has a sender, but this
+  workflow still needs a `repository_dispatch` receiver; Web also needs a sender.
+
+## Verification Log (2026-08-24)
+
+- `npx playwright test --list` discovered 60 tests across 28 spec files.
+- Compose owns migration ordering through the one-shot `migrate` service.
+- CI supports smoke, full, and critical tiers with failure artifacts and bounded
+  retention.
+- Cross-repo dispatch remains open as described above; nightly/manual execution
+  is the current reliable backstop.
 
 ## Verification Log (2026-06-11)
 - Gate 0 harness cleanup:

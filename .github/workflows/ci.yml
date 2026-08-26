@@ -8,13 +8,10 @@ name: CI Pipeline
 #     issue and mark the spec with a TODO rather than adding more retries.
 #   - Playwright HTML report + traces are uploaded as artifacts on failure.
 #
-# Cross-repo trigger: lifestack-api and lifestack-web do NOT yet dispatch into
-# this workflow on their own pushes to main — wiring a repository_dispatch
-# from those repos requires a personal-access-token secret this workflow
-# doesn't have visibility into, so that's left as a documented gap (see
-# README.md "CI" section) rather than a guessed, silently-broken hookup.
-# Interim: workflow_dispatch below covers on-demand runs after an api/web
-# merge; nightly cron is the backstop that catches drift within 24h either way.
+# Cross-repo trigger contract is incomplete: lifestack-api sends
+# repository_dispatch event `api-web-merge`, but this workflow does not yet
+# declare a repository_dispatch receiver; lifestack-web has no sender. Manual
+# workflow_dispatch and nightly cron remain the reliable backstops.
 #
 # Critical-path tests: tagged with @critical — run via workflow_dispatch with
 # suite=critical for fast regression validation.
