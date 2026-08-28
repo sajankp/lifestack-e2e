@@ -2,6 +2,9 @@
 
 This repository contains the standalone Playwright-based end-to-end integration test suite for the Lifestack platform. It runs automated user flows against an isolated multi-container staging environment.
 
+Current verified inventory (2026-08-24): `npx playwright test --list` discovers
+**60 tests across 28 spec files**.
+
 ## Architecture
 
 The staging environment is orchestrated using Docker Compose (`docker-compose.e2e.yml`) and consists of:
@@ -116,13 +119,12 @@ specific trace with `npx playwright show-trace path/to/trace.zip`.
 **Artifact retention**: PR/on-demand runs retain for 30 days; nightly cron runs retain for 7 days.
 A weekly cleanup workflow (`.github/workflows/cleanup-artifacts.yml`) removes stale artifacts.
 
-**Cross-repo triggering — known gap**: `lifestack-api` and `lifestack-web`'s
-own CI workflows do not currently dispatch a run of this workflow when they
-merge to `main`. Wiring that (via `repository_dispatch` or `workflow_call`)
-needs a personal-access-token secret scoped across repos that this workflow
-doesn't have visibility into, so it's left undone rather than guessed at. In
-the meantime: the nightly cron catches drift within 24h, and `workflow_dispatch`
-lets you trigger a run on demand right after an api/web merge lands.
+**Cross-repo triggering — incomplete contract**: API CI now sends event
+`api-web-merge` to this repository with `E2E_DISPATCH_TOKEN`, but this workflow's
+`on:` block does not declare `repository_dispatch`, so the event does not start a
+run. Web CI has no sender. Do not treat the API sender as working until the
+receiver, secret, payload handling, and a fresh run on the source SHA are all
+verified. In the meantime, nightly and manual runs are the reliable backstop.
 
 ---
 
@@ -150,3 +152,13 @@ lets you trigger a run on demand right after an api/web merge lands.
 - **`e2e/statement-reconciliation.spec.ts`** `@smoke`: Bank statement CSV import against a wallet account and matching an unmatched statement line to an existing transaction.
 - **`e2e/investing-dividends-corporate-actions.spec.ts`** `@smoke`: Recording and deleting a dividend/income entry, and recording and deleting a stock split corporate action.
 - **`e2e/investing-return-metrics-historical-data.spec.ts`**: Investing return metrics panel (open/exited position toggle) and Net Worth historical-data backfill import + deletion.
+- **`e2e/health.spec.ts`** `@smoke`: Medication creation, late/missed/pending dose handling, dose/weight logging, and briefing integration.
+- **`e2e/investing-analytics.spec.ts`**: Asset-allocation analytics and warning deduplication.
+- **`e2e/performance-caching.spec.ts`**: ETag/304 behavior, transfer pagination bounds, and optimistic cache removal.
+- **`e2e/pwa-offline.spec.ts`**: Web manifest and authenticated offline-state behavior.
+- **`e2e/spending-analytics.spec.ts`**: Category palette and savings-rate analytics.
+- **`e2e/weekly-summaries.spec.ts`**: Summary stale indicator and bounded movement rendering.
+
+The capture suite also covers spec-093's find -> confirm -> update transaction
+flow. MCP spec-094 is API-contract tested; it does not yet have a browser E2E
+because the primary client is external to the Web application.
