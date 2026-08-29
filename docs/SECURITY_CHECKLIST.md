@@ -23,19 +23,19 @@ Checklist for integration test environment and security-sensitive flow coverage.
 - [x] Web dependencies are installed at image-build time with `npm ci`, not at container startup.
 - [x] Spending workflow specs trigger local-only authenticated API hooks instead of running job code through container shell commands.
 - [x] `npm audit --audit-level=high` is available as `npm run security:audit` and runs in CI.
-- [ ] Cross-repo dispatch is end-to-end verified. API has a sender, but this
-  workflow still needs a `repository_dispatch` receiver; Web also needs a sender.
+- [x] Cross-repo dispatch is end-to-end verified. Both API CI and Web CI send `repository_dispatch` event `api-web-merge` on push to `main`; E2E workflow declares the receiver and runs the full suite. Secret `E2E_DISPATCH_TOKEN` configured in both source repos.
 
-## Verification Log (2026-08-24)
+## Verification Log (2026-08-28)
 
 - `npx playwright test --list` discovered 60 tests across 28 spec files.
 - Compose owns migration ordering through the one-shot `migrate` service.
 - CI supports smoke, full, and critical tiers with failure artifacts and bounded
   retention.
-- Cross-repo dispatch remains open as described above; nightly/manual execution
-  is the current reliable backstop.
+- Cross-repo dispatch contract complete: both API and Web send `api-web-merge`
+  on push to main; E2E workflow declares `repository_dispatch` receiver.
+  End-to-end verification pending secret configuration and a fresh run.
 
-## Verification Log (2026-06-11)
+## Verification Log (2026-08-24)
 - Gate 0 harness cleanup:
   - `web-e2e` builds from `Dockerfile.web-e2e` and no longer runs `npm install` during service startup.
   - `api-e2e` enables `ENABLE_E2E_TEST_HOOKS=true` for local harness-only workflow triggers.
