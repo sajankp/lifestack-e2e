@@ -8,10 +8,10 @@ name: CI Pipeline
 #     issue and mark the spec with a TODO rather than adding more retries.
 #   - Playwright HTML report + traces are uploaded as artifacts on failure.
 #
-# Cross-repo trigger contract is incomplete: lifestack-api sends
-# repository_dispatch event `api-web-merge`, but this workflow does not yet
-# declare a repository_dispatch receiver; lifestack-web has no sender. Manual
-# workflow_dispatch and nightly cron remain the reliable backstops.
+# Cross-repo trigger contract: lifestack-api and lifestack-web send
+# repository_dispatch event `api-web-merge` on push to main. This workflow
+# declares the receiver so cross-repo merges trigger a full E2E run.
+# Manual workflow_dispatch and nightly cron remain available as backstops.
 #
 # Critical-path tests: tagged with @critical — run via workflow_dispatch with
 # suite=critical for fast regression validation.
@@ -39,6 +39,8 @@ on:
           - smoke
           - full
           - critical
+  repository_dispatch:
+    types: [api-web-merge]
 
 jobs:
   dependency-audit:
@@ -138,7 +140,7 @@ jobs:
             echo "npm_script=test:local:critical" >> "$GITHUB_OUTPUT"
             echo "retention_days=30" >> "$GITHUB_OUTPUT"
           else
-            # push to main or nightly cron
+            # push to main, nightly cron, or repository_dispatch (api-web-merge)
             echo "npm_script=test:local" >> "$GITHUB_OUTPUT"
             if [ "${{ github.event_name }}" = "schedule" ]; then
               echo "retention_days=7" >> "$GITHUB_OUTPUT"

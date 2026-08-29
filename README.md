@@ -119,12 +119,7 @@ specific trace with `npx playwright show-trace path/to/trace.zip`.
 **Artifact retention**: PR/on-demand runs retain for 30 days; nightly cron runs retain for 7 days.
 A weekly cleanup workflow (`.github/workflows/cleanup-artifacts.yml`) removes stale artifacts.
 
-**Cross-repo triggering — incomplete contract**: API CI now sends event
-`api-web-merge` to this repository with `E2E_DISPATCH_TOKEN`, but this workflow's
-`on:` block does not declare `repository_dispatch`, so the event does not start a
-run. Web CI has no sender. Do not treat the API sender as working until the
-receiver, secret, payload handling, and a fresh run on the source SHA are all
-verified. In the meantime, nightly and manual runs are the reliable backstop.
+**Cross-repo triggering — contract complete**: Both API CI and Web CI now send event `api-web-merge` to this repository on push to `main` using `E2E_DISPATCH_TOKEN`. This workflow declares the `repository_dispatch` receiver, so cross-repo merges trigger a full E2E run. Manual `workflow_dispatch` and nightly cron remain available as backstops.
 
 ---
 
