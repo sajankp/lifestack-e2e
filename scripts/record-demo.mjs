@@ -90,6 +90,13 @@ async function seedDemoData(context) {
   const accounts = await apiCall(context, 'GET', '/finance/accounts?limit=50');
   const wallet = (accounts.items || []).find((a) => a.name === 'wallet');
 
+  // Ensure default spending account is set for this workspace (demo reset doesn't set it)
+  if (wallet) {
+    await apiCall(context, 'PATCH', '/finance/settings', {
+      default_spending_account_id: wallet.public_id,
+    });
+  }
+
   // Extra transactions so budgets, trends, and category breakdowns look lived-in.
   // Weight the current month (days 1-3) so the month-to-date view isn't empty.
   const transactions = [
@@ -504,7 +511,7 @@ async function recordTour(browser, storageState, categories) {
 
 async function main() {
   await fs.mkdir(OUT_DIR, { recursive: true });
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome' });
   try {
     console.log(`[1/3] Registering demo user ${credentials.email} and seeding data...`);
     const setupContext = await browser.newContext({ viewport: SIZE });
