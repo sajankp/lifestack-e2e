@@ -512,8 +512,10 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
         send(data: string) {
           setTimeout(() => {
             const parsed = JSON.parse(data);
-            const userText = parsed?.realtimeInput?.mediaChunks?.[0]?.data || '';
-            if (userText.includes('salary') || userText.includes('income')) {
+            const userText =
+              parsed?.content || parsed?.realtimeInput?.mediaChunks?.[0]?.data || '';
+            const normalizedText = String(userText).toLowerCase();
+            if (normalizedText.includes('salary') || normalizedText.includes('income')) {
               this.triggerMessage({
                 serverContent: {
                   modelTurn: {
@@ -535,7 +537,8 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
               });
               this.triggerMessage({
                 type: 'tool_response',
-                tool_name: 'log_spending_transaction',
+                name: 'log_spending_transaction',
+                status: 'success',
                 result: {
                   status: 'success',
                   entity_type: 'transaction',
@@ -547,7 +550,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
                   summary: "Added $3500.00 'Monthly salary' to Spending",
                 },
               });
-            } else if (userText.includes('transfer')) {
+            } else if (normalizedText.includes('transfer')) {
               this.triggerMessage({
                 serverContent: {
                   modelTurn: {
@@ -569,7 +572,8 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
               });
               this.triggerMessage({
                 type: 'tool_response',
-                tool_name: 'create_transfer',
+                name: 'create_transfer',
+                status: 'success',
                 result: {
                   status: 'success',
                   entity_type: 'capital_transfer',
