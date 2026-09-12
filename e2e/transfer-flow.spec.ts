@@ -80,7 +80,8 @@ async function submitTransfer(
  */
 async function selectLedgerAccount(page: Page, accountLabel: string): Promise<void> {
   await page.getByTestId('spending-tab-ledger').click();
-  await page.getByTestId('ledger-account-select').selectOption({ label: accountLabel });
+  await page.getByTestId('ledger-account-select').click();
+  await page.getByRole('option', { name: accountLabel, exact: true }).click();
 }
 
 async function expectLedgerTransferRow(

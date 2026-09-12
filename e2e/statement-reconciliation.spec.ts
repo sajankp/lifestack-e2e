@@ -103,7 +103,8 @@ test.describe('Statement Reconciliation E2E Flow', () => {
     // the wallet's transactions.
     await page.getByTestId('nav-spending').click();
     await page.getByTestId('spending-tab-ledger').click();
-    await page.getByTestId('ledger-account-select').selectOption({ label: `${accountName} (wallet)` });
+    await page.getByTestId('ledger-account-select').click();
+    await page.getByRole('option', { name: `${accountName} (wallet)`, exact: true }).click();
 
     await expect(page.getByTestId('statement-unmatched-line')).toContainText(`Statement line for ${description}`);
     const matchPromise = page.waitForResponse(
