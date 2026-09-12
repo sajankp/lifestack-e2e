@@ -436,7 +436,8 @@ async function recordTour(browser, storageState, categories) {
   await page.goto(`${WEB}/spending`, { waitUntil: 'networkidle' });
   await page.getByTestId('spending-tab-ledger').click();
   await showCaption(page, 'Ledger', 'One unmatched statement line — matching it just links it, the transaction itself never changes.');
-  await page.getByTestId('ledger-account-select').selectOption({ label: 'wallet (wallet)' });
+  await page.getByTestId('ledger-account-select').click();
+  await page.getByRole('option', { name: 'wallet (wallet)', exact: true }).click();
   await page.waitForTimeout(1600);
   const matchCandidate = page.getByTestId('statement-match-candidate').first();
   if (await matchCandidate.count()) {
