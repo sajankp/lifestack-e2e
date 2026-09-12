@@ -164,4 +164,70 @@ test.describe('Transfer Flow E2E', () => {
     const invalidTransferBody = await invalidTransfer.json();
     expect(JSON.stringify(invalidTransferBody)).toContain('Transfer arithmetic inconsistent');
   });
+
+  test('displays resolved categories for regular transactions and em dashes for transfer rows in account activity', async ({
+    page,
+    baseURL,
+  }) => {
+    const uniqueId = randomUUID();
+    const suffix = uniqueId.slice(0, 8);
+    const usdSourceName = `USD Activity ${suffix}`;
+    const usdTargetName = `USD Savings ${suffix}`;
+    const usdSourceLabel = `${usdSourceName} (bank)`;
+    const usdTargetLabel = `${usdTargetName} (wallet)`;
+    const transferNote = `Activity transfer ${suffix}`;
+    const txDescription = `Groceries shopping ${suffix}`;
+
+    await registerAndLogin(page, baseURL, {
+      email: `e2e-activity-${uniqueId}@example.com`,
+      username: `e2e_act_${uniqueId.replace(/-/g, '_').slice(0, 24)}`,
+      password: 'Password123!',
+    });
+
+    const sourceAccount = await createAccount(page, usdSourceName, 'bank', 'USD');
+    await createAccount(page, usdTargetName, 'wallet', 'USD');
+
+    // Create a spending category
+    const catRes = await page.request.post(`${apiV1()}/spending/categories`, {
+      headers: await csrfHeaders(page),
+      data: {
+        name: `Groceries ${suffix}`,
+        color: '#10b981',
+        icon: '🛒',
+      },
+    });
+    expect(catRes.status()).toBe(201);
+    const category = await catRes.json();
+
+    // Create a regular transaction in this category
+    const txRes = await page.request.post(`${apiV1()}/spending/transactions`, {
+      headers: await csrfHeaders(page),
+      data: {
+        amount: '45.00',
+        type: 'expense',
+        category_id: category.public_id,
+        account_id: sourceAccount.public_id,
+        description: txDescription,
+        occurred_at: new Date().toISOString(),
+      },
+    });
+    expect(txRes.status()).toBe(201);
+
+    // Create a transfer
+    await page.getByTestId('nav-spending').click();
+    await submitTransfer(page, usdSourceLabel, usdTargetLabel, '50.00', transferNote);
+
+    // Go to Account activity tab
+    await selectLedgerAccount(page, usdSourceLabel);
+
+    // Verify transaction row displays the category
+    const txRow = page.locator('tbody tr').filter({ hasText: txDescription });
+    await expect(txRow).toBeVisible();
+    await expect(txRow).toContainText(`Groceries ${suffix}`);
+
+    // Verify transfer row displays em dash in Category column
+    const transferRow = page.locator('tbody tr').filter({ hasText: transferNote });
+    await expect(transferRow).toBeVisible();
+    await expect(transferRow).toContainText('—');
+  });
 });

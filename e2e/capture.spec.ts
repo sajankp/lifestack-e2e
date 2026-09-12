@@ -469,4 +469,171 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await expect(page.getByText('Mock Voice limit reached')).toBeVisible({ timeout: 5000 });
   });
 
+  test('renders confirmation cards for typed ordinary income and capital transfers', async ({ page }) => {
+    const memberCreds = makeCredentials('member');
+    await registerViaApi(page.request, memberCreds);
+
+    await page.addInitScript(() => {
+      const OriginalWebSocket = window.WebSocket;
+      class MockWebSocket {
+        static CONNECTING = 0;
+        static OPEN = 1;
+        static CLOSING = 2;
+        static CLOSED = 3;
+
+        url: string;
+        readyState: number;
+        binaryType: string;
+        onopen: (() => void) | null;
+        onmessage: ((event: { data: string }) => void) | null;
+        onerror: ((err: unknown) => void) | null;
+        onclose: ((event: { code: number; reason: string }) => void) | null;
+
+        constructor(url: string, protocols?: string | string[]) {
+          this.url = url;
+          this.readyState = 0;
+          this.binaryType = 'blob';
+          this.onopen = null;
+          this.onmessage = null;
+          this.onerror = null;
+          this.onclose = null;
+
+          if (url.includes('/capture/agent/ws')) {
+            (window as any).mockWSInstance = this;
+            setTimeout(() => {
+              this.readyState = 1;
+              if (this.onopen) this.onopen();
+            }, 50);
+          } else {
+            return new OriginalWebSocket(url, protocols) as any;
+          }
+        }
+
+        send(data: string) {
+          setTimeout(() => {
+            const parsed = JSON.parse(data);
+            const userText =
+              parsed?.content || parsed?.realtimeInput?.mediaChunks?.[0]?.data || '';
+            const normalizedText = String(userText).toLowerCase();
+            if (normalizedText.includes('salary') || normalizedText.includes('income')) {
+              this.triggerMessage({
+                serverContent: {
+                  modelTurn: {
+                    parts: [
+                      {
+                        functionCall: {
+                          name: 'log_spending_transaction',
+                          args: {
+                            amount: '3500.00',
+                            category_name: 'salary',
+                            description: 'Monthly salary',
+                            transaction_type: 'income',
+                          },
+                        },
+                      },
+                    ],
+                  },
+                },
+              });
+              this.triggerMessage({
+                type: 'tool_response',
+                name: 'log_spending_transaction',
+                status: 'success',
+                result: {
+                  status: 'success',
+                  entity_type: 'transaction',
+                  entity_public_id: 'tx-inc-999',
+                  type: 'income',
+                  amount: '3500.00',
+                  category: 'salary',
+                  description: 'Monthly salary',
+                  summary: "Added $3500.00 'Monthly salary' to Spending",
+                },
+              });
+            } else if (normalizedText.includes('transfer')) {
+              this.triggerMessage({
+                serverContent: {
+                  modelTurn: {
+                    parts: [
+                      {
+                        functionCall: {
+                          name: 'create_transfer',
+                          args: {
+                            from_account_name: 'Checking',
+                            to_account_name: 'Brokerage',
+                            amount: '500.00',
+                            confirmed: true,
+                          },
+                        },
+                      },
+                    ],
+                  },
+                },
+              });
+              this.triggerMessage({
+                type: 'tool_response',
+                name: 'create_transfer',
+                status: 'success',
+                result: {
+                  status: 'success',
+                  entity_type: 'capital_transfer',
+                  entity_public_id: 'tr-555',
+                  transfer: {
+                    entity_public_id: 'tr-555',
+                    from_account_name: 'Checking',
+                    to_account_name: 'Brokerage',
+                    gross_amount: '500.00',
+                    net_amount_received: '500.00',
+                  },
+                  summary: 'Transferred 500.00 USD from Checking to Brokerage',
+                },
+              });
+            }
+          }, 150);
+        }
+
+        close(code = 1000, reason = '') {
+          this.readyState = 3;
+          this.onclose?.({ code, reason });
+        }
+
+        triggerMessage(payload: unknown) {
+          if (this.onmessage) {
+            this.onmessage({
+              data: typeof payload === 'string' ? payload : JSON.stringify(payload),
+            });
+          }
+        }
+      }
+
+      window.WebSocket = MockWebSocket as any;
+    });
+
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.locator('#voice-agent-trigger').click();
+    const input = page.locator('input[placeholder*="Type a message"]');
+    await expect(input).toBeVisible();
+    await input.focus();
+
+    // 1. Income capture contract
+    await input.fill('Log my monthly salary of 3500');
+    await input.press('Enter');
+    const incomeCard = page.getByTestId('confirmation-card').filter({ hasText: 'Monthly salary' });
+    await expect(incomeCard).toBeVisible();
+    await expect(incomeCard.getByText("Added $3500.00 'Monthly salary' to Spending")).toBeVisible();
+    await expect(incomeCard.getByRole('link', { name: 'View →' })).toHaveAttribute(
+      'href',
+      '/spending?tab=transactions',
+    );
+
+    // 2. Transfer capture contract
+    await input.fill('Transfer 500 from checking to brokerage');
+    await input.press('Enter');
+    const transferCard = page.getByTestId('confirmation-card').filter({ hasText: 'Transferred 500.00 USD' });
+    await expect(transferCard).toBeVisible();
+    await expect(transferCard.getByRole('link', { name: 'View →' })).toHaveAttribute(
+      'href',
+      '/spending?tab=ledger',
+    );
+  });
 });

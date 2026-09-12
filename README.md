@@ -2,8 +2,8 @@
 
 This repository contains the standalone Playwright-based end-to-end integration test suite for the Lifestack platform. It runs automated user flows against an isolated multi-container staging environment.
 
-Current verified inventory (2026-08-24): `npx playwright test --list` discovers
-**60 tests across 28 spec files**.
+Current verified inventory: `npx playwright test --list` discovers
+**62 tests across 28 spec files**.
 
 ## Architecture
 
@@ -135,9 +135,9 @@ A weekly cleanup workflow (`.github/workflows/cleanup-artifacts.yml`) removes st
 - **`e2e/imports-smoke.spec.ts`** `@smoke`: Import validation and commit for a spending import, plus rolling back a completed import from the UI.
 - **`e2e/rbac.spec.ts`** `@rbac`: Role-based access enforcement — VIEWER blocked from creating transactions/modifying finance settings, MEMBER can create/read todos, OWNER can modify workspace finance settings.
 - **`e2e/workspace-isolation.spec.ts`**: Switching visible workspace data and blocking cross-workspace todo/spending lookups.
-- **`e2e/capture.spec.ts`**: Voice agent widget/capture flow — VIEWER blocked from the WebSocket, MEMBER connects and submits text triggering mock success events, and error-event display.
+- **`e2e/capture.spec.ts`**: Voice agent widget/capture flow — VIEWER blocked from the WebSocket, MEMBER connects and submits text triggering mock success events, typed ordinary income and capital transfer confirmation cards with routing links, and error-event display.
 - **`e2e/todo-smoke.spec.ts`** `@smoke`: Creating a timed todo for today and completing it.
-- **`e2e/transfer-flow.spec.ts`**: Same-currency and cross-currency transfer creation, and rejection of invalid transfer arithmetic.
+- **`e2e/transfer-flow.spec.ts`**: Same-currency and cross-currency transfer creation, rejection of invalid transfer arithmetic, and category badge vs em dash rendering in account activity.
 - **`e2e/app-shell-responsive.spec.ts`**: Tablet navigation, profile menu, notifications, and logout in the responsive app shell.
 - **`e2e/finance-display-settings.spec.ts`**: Workspace currency-code display followed by a user-level symbol override applied to dashboard totals.
 - **`e2e/guided-empty-states.spec.ts`**: First-run empty states and primary actions across core modules.
