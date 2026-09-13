@@ -633,7 +633,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await expect(transferCard).toBeVisible();
     await expect(transferCard.getByRole('link', { name: 'View →' })).toHaveAttribute(
       'href',
-      '/spending/ledger',
+      '/spending/account-activity',
     );
   });
 });
