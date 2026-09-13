@@ -51,5 +51,13 @@ test.describe('Spending Analytics E2E Spec', () => {
       const tickText = await yAxisTicks.first().innerText();
       expect(tickText).toBeTruthy();
     }
+
+    // Tier 2: Monthly Spend Pacing Card
+    const spendPacingCard = page.getByTestId('spend-pacing-card');
+    if (await spendPacingCard.isVisible()) {
+      await expect(spendPacingCard.getByText('Monthly Spend Pacing')).toBeVisible();
+      await expect(spendPacingCard.getByText('Daily Burn Rate')).toBeVisible();
+      await expect(spendPacingCard.getByText('Projected EOM Spend')).toBeVisible();
+    }
   });
 });

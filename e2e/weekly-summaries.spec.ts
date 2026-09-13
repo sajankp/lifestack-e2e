@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
-import { triggerWeeklySummary } from './helpers/e2e-hooks';
+import { triggerMonthlySummary, triggerWeeklySummary } from './helpers/e2e-hooks';
 
-test.describe('Weekly Summaries E2E Spec', () => {
+test.describe('Weekly & Monthly Summaries E2E Spec', () => {
   let testEmail = '';
   let testUsername = '';
   const testPassword = 'Password123!';
@@ -48,4 +48,26 @@ test.describe('Weekly Summaries E2E Spec', () => {
       expect(text).not.toContain('-100.00%');
     }
   });
+
+  test('switches to monthly summaries, generates monthly summary, and renders card with metrics', async ({ page }) => {
+    await page.getByTestId('nav-summaries').click();
+    await expect(page.getByRole('heading', { name: 'Weekly Summaries', exact: true })).toBeVisible();
+
+    // Switch to Monthly tab
+    await page.getByTestId('cadence-monthly-btn').click();
+    await expect(page.getByText('No monthly summaries yet')).toBeVisible();
+    await expect(page.getByTestId('generate-month-close-btn')).toBeVisible();
+
+    // Trigger monthly summary workflow via E2E hook
+    await triggerMonthlySummary(page);
+    await page.reload();
+
+    // Ensure we are on monthly tab after reload
+    await page.getByTestId('cadence-monthly-btn').click();
+    await expect(page.getByText('No monthly summaries yet')).not.toBeVisible();
+
+    const summaryCard = page.getByRole('article').filter({ hasText: /^Month of / }).first();
+    await expect(summaryCard).toBeVisible();
+  });
 });
+

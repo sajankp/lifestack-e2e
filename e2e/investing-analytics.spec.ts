@@ -43,5 +43,25 @@ test.describe('Investing Analytics & Warning Deduplication E2E Spec', () => {
     if (await collapsedWarningBanner.isVisible()) {
       await expect(collapsedWarningBanner).toContainText(/funds missing constituent data|warnings/i);
     }
+
+    // Tier 2: Portfolio Allocation Card & Dimension Toggle
+    const allocationCard = page.getByTestId('portfolio-allocation-card');
+    await expect(allocationCard).toBeVisible();
+    await expect(allocationCard.getByText('Portfolio Allocation')).toBeVisible();
+
+    const sectorBtn = allocationCard.getByRole('button', { name: 'Sectors' });
+    const assetClassBtn = allocationCard.getByRole('button', { name: 'Asset Classes' });
+    await expect(sectorBtn).toBeVisible();
+    await expect(assetClassBtn).toBeVisible();
+    await sectorBtn.click();
+    await assetClassBtn.click();
+
+    // Tier 2: Dividend Trajectory Card
+    const dividendCard = page.getByTestId('dividend-trajectory-card');
+    await expect(dividendCard).toBeVisible();
+    await expect(dividendCard.getByText('Dividend Income Trajectory')).toBeVisible();
+    await expect(dividendCard.getByText('Trailing 12-Month Yield')).toBeVisible();
+    await expect(dividendCard.getByText('Average Monthly Income')).toBeVisible();
+    await expect(dividendCard.getByText('Cumulative All-Time')).toBeVisible();
   });
 });
