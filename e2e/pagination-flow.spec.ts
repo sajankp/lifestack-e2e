@@ -39,12 +39,17 @@ test.describe('Paginated Results & Page Size Selector E2E Flow', () => {
     const catId = categories[0]?.public_id;
 
     // 3. Batch seed 60 transactions with sequential timestamps across 2 days
-    // Day 1 (30 transactions) and Day 2 (30 transactions)
+    // Day 1 (30 transactions) and Day 2 (30 transactions) in current month
     const seedPromises: Promise<unknown>[] = [];
     const headers = await csrfHeaders(page);
+    const now = new Date();
+    const currentYear = now.getUTCFullYear();
+    const currentMonth = String(now.getUTCMonth() + 1).padStart(2, '0');
+    const day1 = `${currentYear}-${currentMonth}-01`;
+    const day2 = `${currentYear}-${currentMonth}-02`;
 
     for (let i = 1; i <= 60; i++) {
-      const day = i <= 30 ? '2026-08-10' : '2026-08-11';
+      const day = i <= 30 ? day1 : day2;
       const hour = String(i % 24).padStart(2, '0');
       const minute = String(i % 60).padStart(2, '0');
       seedPromises.push(
