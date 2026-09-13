@@ -33,8 +33,8 @@ test.describe('Spending Analytics E2E Spec', () => {
       const fillColors = new Set<string>();
       const sliceCount = await categoryDonutSlices.count();
       for (let i = 0; i < sliceCount; i++) {
-        const fill = await categoryDonutSlices.nth(i).getAttribute('fill');
-        if (fill) fillColors.add(fill);
+        const fill = (await categoryDonutSlices.nth(i).getAttribute('fill')) || (await categoryDonutSlices.nth(i).getAttribute('stroke'));
+        if (fill && fill !== 'none' && fill !== 'transparent') fillColors.add(fill);
       }
       expect(fillColors.size).toBeGreaterThan(1);
     }
