@@ -25,7 +25,7 @@ test.describe('Spending Analytics E2E Spec', () => {
 
     // Navigate to Analytics sub-tab
     await page.getByTestId('spending-tab-analytics').click();
-    await expect(page.getByText('Category Breakdown')).toBeVisible();
+    await expect(page.getByText(/Category (Allocation )?Breakdown/)).toBeVisible();
 
     // UX Review #8: Category Breakdown donut should use a distinct categorical palette rather than monochrome blue
     const categoryDonutSlices = page.locator('.recharts-pie-sector, [data-testid="category-breakdown-slice"]');
