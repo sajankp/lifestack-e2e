@@ -22,6 +22,13 @@ export type WeeklySummaryWorkflowRunResponse = {
   week_end: string;
 };
 
+export type MonthlySummaryWorkflowRunResponse = {
+  status: 'ok';
+  summary_public_id: string;
+  year: number;
+  month: number;
+};
+
 export async function triggerBudgetGuardrails(page: Page): Promise<void> {
   await postE2EHook(page, 'workflows/budget-guardrails');
 }
@@ -43,3 +50,16 @@ export async function triggerWeeklySummary(
     weekStart ? { week_start: weekStart } : {},
   ) as Promise<WeeklySummaryWorkflowRunResponse>;
 }
+
+export async function triggerMonthlySummary(
+  page: Page,
+  year?: number,
+  month?: number,
+): Promise<MonthlySummaryWorkflowRunResponse> {
+  return postE2EHook(
+    page,
+    'workflows/monthly-summary',
+    year && month ? { year, month } : {},
+  ) as Promise<MonthlySummaryWorkflowRunResponse>;
+}
+
