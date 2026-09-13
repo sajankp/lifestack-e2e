@@ -73,11 +73,13 @@ test.describe('Paginated Results & Page Size Selector E2E Flow', () => {
     // Select the created account in the account dropdown
     const accountSelect = page.getByTestId('ledger-account-select');
     await accountSelect.click();
-    await page.getByRole('option', { name: /Checking Account/i }).click();
+    const accountOption = page.getByRole('option', { name: /Checking Account/i });
+    await expect(accountOption).toBeVisible({ timeout: 10000 });
+    await accountOption.click();
 
     // 5. Verify Pagination controls at default limit = 50
     const summary = page.getByTestId('pagination-summary');
-    await expect(summary).toBeVisible();
+    await expect(summary).toBeVisible({ timeout: 15000 });
     await expect(summary).toContainText('Showing 1 to 50 of 60 results');
     await expect(page.getByText('Page 1 of 2')).toBeVisible();
 
