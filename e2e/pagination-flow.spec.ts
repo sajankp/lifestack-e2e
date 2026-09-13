@@ -73,7 +73,7 @@ test.describe('Paginated Results & Page Size Selector E2E Flow', () => {
     // Select the created account in the account dropdown
     const accountSelect = page.getByTestId('ledger-account-select');
     await accountSelect.click();
-    await page.getByRole('option', { name: /Checking Account/i }).click();
+    await page.getByText(/Checking Account/i).first().click();
 
     // 5. Verify Pagination controls at default limit = 50
     const summary = page.getByTestId('pagination-summary');
