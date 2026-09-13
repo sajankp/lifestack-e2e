@@ -77,7 +77,7 @@ test.describe('Investing Return Metrics & Net Worth Historical Data E2E Flow', (
     await expect(page.getByTestId('investing-xirr-overall')).toContainText('%');
 
     await expect(page.getByText('Current holdings').first()).toBeVisible();
-    await expect(page.getByText('Unrealized')).toBeVisible();
+    await expect(page.getByText('Unrealized', { exact: true }).first()).toBeVisible();
 
     await page.getByRole('button', { name: 'Exited positions' }).click();
     await expect(page.getByText('No exited positions yet.')).toBeVisible();
