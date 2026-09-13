@@ -7,8 +7,7 @@ ARG VITE_API_URL=http://localhost:8001/v1
 ENV VITE_API_URL=${VITE_API_URL}
 
 COPY package*.json ./
-RUN --mount=type=cache,target=/root/.npm \
-  npm config set fetch-retries 5 \
+RUN npm config set fetch-retries 5 \
   && npm config set fetch-retry-mintimeout 20000 \
   && npm config set fetch-retry-maxtimeout 120000 \
   && npm ci
