@@ -5,6 +5,8 @@ import {
   createSpendingAccount,
   transferCash,
   placeOrderViaApi,
+  apiV1,
+  csrfHeaders,
   type Account,
 } from './helpers/test-helpers';
 
@@ -309,12 +311,116 @@ test.describe('Investing Orders E2E Flow', () => {
     await expect(tradeRows.last()).toContainText(/buy/i);
   });
 
-  test('should show transfer-triggered cash balance entry', async ({ page }) => {
-    await page.getByTestId('nav-investing').click();
-    await page.getByTestId('investing-tab-cash').click();
+  test('should update live cash balance when transfers occur after orders (no shadowing)', async ({ page }) => {
+    // 1. Initial funding from beforeEach is $10,000 into brokerageAccount.
+    // 2. Buy 10 AAPL @ $150 = $1,500. Expected residual cash balance = $8,500.
+    await placeOrderViaApi(page, {
+      account_id: brokerageAccount.public_id,
+      order_type: 'buy',
+      symbol: 'AAPL',
+      quantity: '10',
+      price_per_unit: '150.00',
+      currency: 'USD',
+      occurred_at: new Date(Date.now() - 60000).toISOString(),
+    });
 
-    // The beforeEach already created a $10,000 transfer — verify it appears
-    await expect(page.locator('[data-testid*="cash-balance-trigger-type"]')).toBeVisible();
-    await expect(page.locator('[data-testid*="cash-balance-trigger-type"]')).toContainText(/transfer/i);
+    await page.getByTestId('nav-investing').click();
+    await expect(page.getByTestId('investing-cash-total')).toContainText('8,500');
+
+    // 3. Inbound transfer of $2,500 from bank to brokerage AFTER the order.
+    // In the old bug, the order snapshot shadowed the subsequent transfer.
+    await transferCash(page, bankAccount.public_id, brokerageAccount.public_id, '2500', 'USD', {
+      occurred_at: new Date().toISOString(),
+    });
+
+    await page.reload();
+    await expect(page.getByTestId('investing-cash-total')).toContainText('11,000');
+
+    // 4. Outbound transfer of $1,000 from brokerage back to bank.
+    await transferCash(page, brokerageAccount.public_id, bankAccount.public_id, '1000', 'USD', {
+      from_module: 'investing',
+      to_module: 'spending',
+      occurred_at: new Date().toISOString(),
+    });
+
+    await page.reload();
+    await expect(page.getByTestId('investing-cash-total')).toContainText('10,000');
+  });
+
+  test('should unify orders and transfers in brokerage account ledger timeline', async ({ page, request }) => {
+    // 1. Transfer $10,000 in (already done in beforeEach)
+    // 2. Buy order: 10 AAPL @ $100 = $1,000 (net -1,000)
+    await placeOrderViaApi(page, {
+      account_id: brokerageAccount.public_id,
+      order_type: 'buy',
+      symbol: 'AAPL',
+      quantity: '10',
+      price_per_unit: '100.00',
+      currency: 'USD',
+      occurred_at: new Date(Date.now() - 60000).toISOString(),
+    });
+
+    // 3. Sell order: 2 AAPL @ $150 = $300 (net +300)
+    await placeOrderViaApi(page, {
+      account_id: brokerageAccount.public_id,
+      order_type: 'sell',
+      symbol: 'AAPL',
+      quantity: '2',
+      price_per_unit: '150.00',
+      currency: 'USD',
+      occurred_at: new Date(Date.now() - 30000).toISOString(),
+    });
+
+    // 4. Inbound transfer: $700 (net +700)
+    await transferCash(page, bankAccount.public_id, brokerageAccount.public_id, '700', 'USD', {
+      occurred_at: new Date().toISOString(),
+      notes: 'Top-up after trades',
+    });
+
+    // Verify unified ledger API endpoint returns all 4 entries in reverse-chronological order
+    // with correct running balances: 10,000 -> 9,300 -> 9,000 -> 10,000
+    const headers = await csrfHeaders(page);
+    const ledgerRes = await request.get(`${apiV1()}/spending/accounts/${brokerageAccount.public_id}/ledger`, {
+      headers,
+    });
+    expect(ledgerRes.ok()).toBeTruthy();
+    const ledger = await ledgerRes.json();
+
+    expect(ledger.total_entries).toBe(4);
+    expect(parseFloat(ledger.closing_balance)).toBe(10000.0);
+
+    const items = ledger.items;
+    // items are reverse-chronological:
+    // 0: transfer_in (+700), running balance = 10000
+    // 1: order_sell (+300), running balance = 9300
+    // 2: order_buy (-1000), running balance = 9000
+    // 3: transfer_in (+10000), running balance = 10000
+    expect(items[0].entry_kind).toBe('transfer_in');
+    expect(parseFloat(items[0].amount)).toBe(700.0);
+    expect(parseFloat(items[0].running_balance)).toBe(10000.0);
+
+    expect(items[1].entry_kind).toBe('order_sell');
+    expect(parseFloat(items[1].amount)).toBe(300.0);
+    expect(parseFloat(items[1].running_balance)).toBe(9300.0);
+
+    expect(items[2].entry_kind).toBe('order_buy');
+    expect(parseFloat(items[2].amount)).toBe(1000.0);
+    expect(parseFloat(items[2].running_balance)).toBe(9000.0);
+
+    expect(items[3].entry_kind).toBe('transfer_in');
+    expect(parseFloat(items[3].amount)).toBe(10000.0);
+    expect(parseFloat(items[3].running_balance)).toBe(10000.0);
+
+    // Verify in UI: Navigate to Money Flow and drill down into the brokerage account
+    await page.getByTestId('nav-money').click();
+    await expect(page.getByRole('heading', { name: 'Money Flow' })).toBeVisible();
+
+    // Select the brokerage account card
+    await page.getByText(brokerageAccount.name).first().click();
+
+    // Verify Account Activity timeline is visible with the 4 events
+    await expect(page.getByText('Account Activity')).toBeVisible();
+    const activityRows = page.locator('tbody tr');
+    await expect(activityRows).toHaveCount(4);
   });
 });
