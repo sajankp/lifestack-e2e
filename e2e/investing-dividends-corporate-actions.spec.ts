@@ -56,7 +56,7 @@ test.describe('Investing Dividends & Corporate Actions E2E Flow', () => {
   test('records a dividend and deletes it @smoke @critical', async ({ page }) => {
     await page.getByTestId('nav-investing').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
-    await page.getByTestId('investing-tab-cash').click();
+    await page.getByTestId('investing-tab-analytics').click();
 
     await page.getByTestId('dividend-add-button').click();
     await page.getByTestId('dividend-account').click();
