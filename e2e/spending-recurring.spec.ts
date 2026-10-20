@@ -4,7 +4,7 @@ import type { Locator } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 import { triggerRecurringTransactions } from './helpers/e2e-hooks';
 import { apiV1 } from './helpers/test-helpers';
-import { expectSpendingPage } from './helpers/ui';
+import { expectSpendingPage, expectMoneyPage, activityRow } from './helpers/ui';
 
 test.describe('Spending Recurring Transactions E2E Flow', () => {
   let testEmail = '';
@@ -116,8 +116,11 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
     await triggerRecurringTransactions(page, ruleDescription);
     await page.reload();
 
-    // 7. Verify transaction was generated under the Transactions tab
-    await page.getByTestId('spending-tab-transactions').click();
+    // 7. Verify the transaction was generated. The transaction list lives on
+    // /money (the Unified Activity Stream) since the four-tab /spending
+    // restructure; there is no "spending-tab-transactions" tab any more.
+    await page.getByTestId('nav-money').click();
+    await expectMoneyPage(page);
     await expect
       .poll(
         async () => {
@@ -143,9 +146,12 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
       )
       .toBeTruthy();
     await page.reload();
-    await page.getByTestId('spending-tab-transactions').click();
-    await expect(page.getByTestId('transaction-description-table').filter({ hasText: ruleDescription })).toBeVisible();
-    await expect(page.locator('tbody').locator('text=19.99')).toBeVisible();
+    await page.getByTestId('nav-money').click();
+    await expectMoneyPage(page);
+    // Activity stream rows are divs, not <tr> -- see activityRow() in
+    // e2e/helpers/ui.ts.
+    await expect(activityRow(page, ruleDescription)).toBeVisible();
+    await expect(activityRow(page, ruleDescription)).toContainText('19.99');
 
     // 8. Go back to Recurring tab and deactivate the rule
     await page.getByTestId('spending-tab-recurring').click();

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { test, expect, type Locator } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 import { apiV1, csrfHeaders } from './helpers/test-helpers';
+import { activityRow, expectMoneyPage } from './helpers/ui';
 
 test.describe('Performance & API Caching E2E Spec', () => {
   let testEmail = '';
@@ -80,12 +81,17 @@ test.describe('Performance & API Caching E2E Spec', () => {
     await page.getByTestId('transaction-submit-btn').click();
     await transactionPromise;
 
-    await page.getByTestId('spending-tab-transactions').click();
-    const row = page.locator('tbody tr').filter({ hasText: 'Optimistic Cache Test' });
+    // The transaction list lives on /money (the Unified Activity Stream)
+    // since the four-tab /spending restructure. Rows are divs, and the
+    // delete affordance is the row's "Delete transaction" button rather
+    // than a spending-transaction-delete-* test id.
+    await page.getByTestId('nav-money').click();
+    await expectMoneyPage(page);
+    const row = activityRow(page, 'Optimistic Cache Test');
     await expect(row).toBeVisible();
 
     // Delete transaction and verify immediate optimistic removal from DOM before reload
-    const deleteBtn = row.locator('[data-testid^="spending-transaction-delete-"]');
+    const deleteBtn = row.getByRole('button', { name: /Delete transaction|Delete transfer/ });
     if (await deleteBtn.isVisible()) {
       await deleteBtn.click();
       await expect(row).not.toBeVisible({ timeout: 2000 });

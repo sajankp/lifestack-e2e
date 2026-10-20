@@ -52,7 +52,10 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     // 2. Open Manage Categories and add a custom category
     await page.getByTestId('spending-open-manage-categories').click();
     await page.getByTestId('spending-category-name').fill(customCategory);
-    await page.getByTestId('spending-category-color').fill('🍔');
+    // The colour field is <input type="color">, which only accepts a hex
+    // value -- the old spec filled it with an emoji, which the browser
+    // rejects as a malformed value.
+    await page.getByTestId('spending-category-color').fill('#f59e0b');
     const categoryPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/spending/categories') && res.request().method() === 'POST'
     );
@@ -191,8 +194,12 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     expect(transaction.account_id).toBe(account.public_id);
     expect(transaction.description).toBe(description);
 
-    await page.getByTestId('spending-tab-transactions').click();
-    const row = page.locator('tbody tr').filter({ hasText: description });
+    // The transaction list lives on /money (the Unified Activity Stream)
+    // since the four-tab /spending restructure; the rows are divs, not
+    // <tr>. See activityRow() in e2e/helpers/ui.ts.
+    await page.getByTestId('nav-money').click();
+    await expectMoneyPage(page);
+    const row = activityRow(page, description);
     await expect(row).toBeVisible();
     // The lowercase account-type pill ("wallet") was collapsed out of the SOURCE
     // column by the 2026-07-16 UX review fixes (pill-noise reduction) — the row

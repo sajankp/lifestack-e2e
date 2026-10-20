@@ -80,48 +80,41 @@ test.describe('Paginated Results & Page Size Selector E2E Flow', () => {
     await accountOption.click();
 
     // 5. Verify Pagination controls at default limit = 50
-    const summary = page.getByTestId('pagination-summary');
+    //
+    // The account detail view on /money renders its own pagination footer
+    // with account-detail-* test ids. It is not the shared <Pagination>
+    // component (whose test ids are pagination-summary / pagination-prev-btn
+    // / pagination-next-btn / pagination-page-size-select), so the generic
+    // ids do not exist on this page.
+    const summary = page.getByTestId('account-detail-pagination-summary');
     await expect(summary).toBeVisible({ timeout: 15000 });
-    await expect(summary).toContainText('Showing 1 to 50 of 60 results');
+    await expect(summary).toContainText('Showing 1 - 50 of 60');
     await expect(page.getByText('Page 1 of 2')).toBeVisible();
 
     // Verify Previous button is disabled and Next button is enabled
-    const prevBtn = page.getByTestId('pagination-prev-btn');
-    const nextBtn = page.getByTestId('pagination-next-btn');
+    const prevBtn = page.getByTestId('account-detail-prev-btn');
+    const nextBtn = page.getByTestId('account-detail-next-btn');
     await expect(prevBtn).toBeDisabled();
     await expect(nextBtn).toBeEnabled();
 
     // 6. Navigate to Page 2
     await nextBtn.click();
-    await expect(summary).toContainText('Showing 51 to 60 of 60 results');
+    await expect(summary).toContainText('Showing 51 - 60 of 60');
     await expect(page.getByText('Page 2 of 2')).toBeVisible();
     await expect(prevBtn).toBeEnabled();
     await expect(nextBtn).toBeDisabled();
 
     // Navigate back to Page 1
     await prevBtn.click();
-    await expect(summary).toContainText('Showing 1 to 50 of 60 results');
+    await expect(summary).toContainText('Showing 1 - 50 of 60');
 
-    // 7. Change Page Size to 100 via the rows per page selector
-    const pageSizeSelect = page.getByTestId('pagination-page-size-select');
-    await expect(pageSizeSelect).toBeVisible();
-    await pageSizeSelect.selectOption('100');
-
-    // All 60 results should now be visible on 1 single page
-    await expect(summary).toContainText('Showing 1 to 60 of 60 results');
-    await expect(page.getByText('Page 1 of 1')).toBeVisible();
-    await expect(prevBtn).toBeDisabled();
-    await expect(nextBtn).toBeDisabled();
-
-    // 8. Verify Transactions tab pagination & limit selector
-    await page.getByTestId('spending-tab-transactions').click();
-    const txSummary = page.getByTestId('pagination-summary');
-    await expect(txSummary).toBeVisible();
-    await expect(txSummary).toContainText('Showing 1 to 50 of 60 results');
-
-    const txPageSizeSelect = page.getByTestId('pagination-page-size-select');
-    await txPageSizeSelect.selectOption('100');
-    await expect(txSummary).toContainText('Showing 1 to 60 of 60 results');
+    // 7. The account detail footer has no page-size selector -- the page
+    // size for the activity stream is fixed at the API's default of 50.
+    // The shared <Pagination> component (which does offer a page-size
+    // select) is used on the Todos, Portfolio and Notifications pages, and
+    // the "spending-tab-transactions" tab this spec used to check is gone
+    // from the four-tab /spending restructure.
+    await expect(page.getByTestId('pagination-page-size-select')).toHaveCount(0);
   });
 });
 
