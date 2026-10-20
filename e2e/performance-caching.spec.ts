@@ -94,6 +94,9 @@ test.describe('Performance & API Caching E2E Spec', () => {
     const deleteBtn = row.getByRole('button', { name: /Delete transaction|Delete transfer/ });
     if (await deleteBtn.isVisible()) {
       await deleteBtn.click();
+      // The delete opens a confirmation dialog; the row is only removed
+      // once it is confirmed.
+      await page.getByRole('button', { name: 'Delete', exact: true }).click();
       await expect(row).not.toBeVisible({ timeout: 2000 });
     }
   });
