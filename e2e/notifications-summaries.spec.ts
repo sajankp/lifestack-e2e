@@ -104,10 +104,16 @@ async function createTodo(
 ): Promise<void> {
   await selectWorkspace(request, workspaceId);
 
-  const response = await request.post(`${apiV1()}/todo/`, {
-    headers: await csrfHeaders(request),
-    data: { title, priority: 'medium', status: 'pending' },
-  });
+  // A freshly-issued session can answer 401 for the first request after a
+  // workspace switch; retryUnauthorized already exists for that pattern
+  // (see e2e/helpers/api.ts) and is used by the /auth/me and /platform/
+  // workspaces calls above.
+  const response = await retryUnauthorized(async () =>
+    request.post(`${apiV1()}/todo/`, {
+      headers: await csrfHeaders(request),
+      data: { title, priority: 'medium', status: 'pending' },
+    }),
+  );
   expect([200, 201], `Todo creation failed: ${await response.text()}`).toContain(
     response.status(),
   );
