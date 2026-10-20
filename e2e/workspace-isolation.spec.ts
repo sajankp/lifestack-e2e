@@ -6,6 +6,7 @@ import {
   csrfHeaders,
   transferCash,
 } from './helpers/test-helpers';
+import { activityRow } from './helpers/ui';
 
 const PASSWORD = 'Password123!';
 
@@ -387,9 +388,12 @@ test.describe('Workspace isolation E2E Flow', () => {
     await expect(page.getByText(sharedTodoTitle)).toBeVisible();
     await expect(page.getByText(personalTodoTitle)).toHaveCount(0);
 
-    await page.goto('/spending');
-    await expect(page.getByTestId('transaction-description-table').filter({ hasText: sharedTransactionDescription })).toBeVisible();
-    await expect(page.getByTestId('transaction-description-table').filter({ hasText: personalTransactionDescription })).toHaveCount(0);
+    // The transaction list lives on /money (the Unified Activity Stream)
+    // since the four-tab /spending restructure. The rows are divs, so they
+    // are located by their text -- see activityRow() in e2e/helpers/ui.ts.
+    await page.goto('/money');
+    await expect(activityRow(page, sharedTransactionDescription)).toBeVisible();
+    await expect(activityRow(page, personalTransactionDescription)).toHaveCount(0);
 
     await page.goto('/investing');
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();

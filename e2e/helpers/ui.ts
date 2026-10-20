@@ -41,9 +41,24 @@ export async function expectInvestingPage(page: Page): Promise<void> {
 /**
  * The "Unified Activity Stream" replaces the old per-account ledger table.
  * It renders rows as divs (not <tr>), so rows are located by their text.
+ *
+ * This is the UNFILTERED stream. Once an account is selected in the
+ * stream's account filter, the page swaps in the "Account Ledger &
+ * History" table (src/components/finance/AccountDetailView.tsx), which
+ * renders real <table>/<tbody>/<tr> rows -- use accountLedgerRow()
+ * there, not activityRow().
  */
 export function activityRow(page: Page, text: string): Locator {
   return page.locator('div.group').filter({ hasText: text });
+}
+
+/**
+ * A row in the "Account Ledger & History" table shown once an account is
+ * selected on /money. Unlike the activity stream, this one is a real
+ * table, so the rows are <tr> elements.
+ */
+export function accountLedgerRow(page: Page, text: string): Locator {
+  return page.locator('tbody tr').filter({ hasText: text });
 }
 
 /**

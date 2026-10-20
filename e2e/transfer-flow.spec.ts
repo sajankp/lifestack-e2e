@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
-import { activityRow, expectSpendingPage, selectActivityAccount } from './helpers/ui';
+import { accountLedgerRow, expectMoneyPage, selectActivityAccount } from './helpers/ui';
 import {
   apiV1,
   createAccount,
@@ -89,7 +89,9 @@ async function expectLedgerTransferRow(
   direction: 'Out' | 'In',
   amountText: string,
 ): Promise<void> {
-  const row = activityRow(page, notes);
+  // After an account is selected the page shows the "Account Ledger &
+  // History" table, whose rows are <tr> -- not the activity stream's divs.
+  const row = accountLedgerRow(page, notes);
   await expect(row).toBeVisible();
   await expect(row).toContainText(direction === 'Out' ? `Transfer → ${notes}` : `Transfer ← ${notes}`);
   await expect(row).toContainText(amountText);
@@ -122,8 +124,10 @@ test.describe('Transfer Flow E2E', () => {
     const authedUsdTarget = await createAccount(page, usdTargetName, 'wallet', 'USD');
     const authedGbpTarget = await createAccount(page, gbpTargetName, 'bank', 'GBP');
 
-    await page.getByTestId('nav-spending').click();
-    await expectSpendingPage(page);
+    // The transfer modal and the Unified Activity Stream both live on
+    // /money since the four-tab /spending restructure.
+    await page.getByTestId('nav-money').click();
+    await expectMoneyPage(page);
 
     await submitTransfer(page, usdSourceLabel, usdTargetLabel, '125.00', sameCurrencyNote);
     await selectLedgerAccount(page, usdSourceLabel);
@@ -214,19 +218,21 @@ test.describe('Transfer Flow E2E', () => {
     expect(txRes.status()).toBe(201);
 
     // Create a transfer
-    await page.getByTestId('nav-spending').click();
+    await page.getByTestId('nav-money').click();
+    await expectMoneyPage(page);
     await submitTransfer(page, usdSourceLabel, usdTargetLabel, '50.00', transferNote);
 
     // Go to Account activity tab
     await selectLedgerAccount(page, usdSourceLabel);
 
     // Verify transaction row displays the category
-    const txRow = page.locator('tbody tr').filter({ hasText: txDescription });
+    // Activity stream rows are divs, not <tr>.
+    const txRow = accountLedgerRow(page, txDescription);
     await expect(txRow).toBeVisible();
     await expect(txRow).toContainText(`Groceries ${suffix}`);
 
     // Verify transfer row displays em dash in Category column
-    const transferRow = page.locator('tbody tr').filter({ hasText: transferNote });
+    const transferRow = accountLedgerRow(page, transferNote);
     await expect(transferRow).toBeVisible();
     await expect(transferRow).toContainText('—');
   });
