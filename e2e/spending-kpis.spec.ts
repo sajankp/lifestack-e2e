@@ -67,6 +67,12 @@ test.describe('Custom Financial KPIs E2E Flow', () => {
 
     // Create a KPI targeting spend_total <= 100 for the current calendar month —
     // the 150 transaction above breaches it immediately.
+    //
+    // The header's quick-add button links to /money?new=1, so the transaction
+    // modal above opened on the Money Flow page. The KPI tab lives on
+    // /spending, so navigate there before using it.
+    await page.getByTestId('nav-spending').click();
+    await expectSpendingPage(page);
     await page.getByTestId('spending-tab-kpis').click();
     // Exact match: the empty-state heading "No custom KPIs yet" also contains
     // the substring "Custom KPIs" and both render together before any KPI exists.
