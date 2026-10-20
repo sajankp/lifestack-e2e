@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
+import { expectMoneyPage, expectSpendingPage } from './helpers/ui';
 import {
   apiV1,
   createSpendingAccount,
@@ -68,16 +69,12 @@ test.describe('Paginated Results & Page Size Selector E2E Flow', () => {
     }
     await Promise.all(seedPromises);
 
-    // 4. Navigate to Spending Overview -> Account activity
-    await page.getByTestId('nav-spending').click();
-    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
+    // 4. Navigate to Money Flow -> Unified Activity Stream
+    await page.getByTestId('nav-money').click();
+    await expectMoneyPage(page);
 
-    await page.getByTestId('spending-tab-ledger').click();
-    await expect(page.getByRole('heading', { name: 'Account activity' })).toBeVisible();
-
-    // Select the created account in the account dropdown
-    const accountSelect = page.getByTestId('ledger-account-select');
-    await accountSelect.click();
+    // Select the created account in the activity stream's account filter
+    await page.getByRole('combobox').first().click();
     const accountOption = page.getByRole('option', { name: /Checking Account/i });
     await expect(accountOption).toBeVisible({ timeout: 10000 });
     await accountOption.click();

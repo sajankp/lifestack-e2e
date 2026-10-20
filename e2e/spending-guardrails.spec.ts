@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 import type { Locator } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 import { triggerBudgetGuardrails } from './helpers/e2e-hooks';
+import { activityRow, expectMoneyPage, expectSpendingPage } from './helpers/ui';
 
 test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
   let testEmail = '';
@@ -46,12 +47,12 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
 
     // 1. Navigate to Spending tab
     await page.getByTestId('nav-spending').click();
-    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
+    await expectSpendingPage(page);
 
     // 2. Open Manage Categories and add a custom category
     await page.getByTestId('spending-open-manage-categories').click();
     await page.getByTestId('spending-category-name').fill(customCategory);
-    await page.getByTestId('spending-category-icon').fill('🍔');
+    await page.getByTestId('spending-category-color').fill('🍔');
     const categoryPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/spending/categories') && res.request().method() === 'POST'
     );
@@ -74,33 +75,26 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     await page.getByTestId('spending-tab-budgets').click();
     await expect(page.locator(`text=${customCategory}`)).toBeVisible();
 
-    // UX Review P2 #1: Header summary block should be collapsed on secondary tab
-    const summaryCardBlock = page.getByTestId('spending-summary-cards-block');
-    if (await summaryCardBlock.isVisible()) {
-      await expect(summaryCardBlock).toHaveClass(/collapsed|hidden|compact/i);
-    }
-
-    // UX Review P1 #5: Spending filter bar should be disabled or hidden on Budgets tab
-    const filterBar = page.getByTestId('spending-filter-bar');
-    if (await filterBar.isVisible()) {
-      await expect(filterBar).toHaveAttribute('aria-disabled', 'true');
-    }
+    // The summary-cards block and the spending filter bar were removed by
+    // the restructure (the planning tabs on /spending no longer carry them),
+    // so there is nothing left to assert about their collapsed state here.
 
     // 4. Log a transaction breaching warning threshold (95%)
-    await page.getByTestId('spending-open-new-transaction').click();
-    await page.getByTestId('spending-transaction-amount').fill('95');
-    await selectFromCombobox(page.getByTestId('spending-transaction-category'), customCategory);
-    await selectFromCombobox(page.getByTestId('spending-transaction-account'), `${accountName} (wallet)`);
-    await page.getByTestId('spending-transaction-description').fill('E2E Feast');
+    await page.getByTestId('header-quick-spending').click();
+    await page.getByTestId('transaction-amount-input').fill('95');
+    await selectFromCombobox(page.getByTestId('transaction-category-select'), customCategory);
+    await selectFromCombobox(page.getByTestId('transaction-account-select'), `${accountName} (wallet)`);
+    await page.getByTestId('transaction-description-input').fill('E2E Feast');
     const transactionPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/spending/transactions') && res.request().method() === 'POST'
     );
-    await page.getByTestId('spending-transaction-save').click();
+    await page.getByTestId('transaction-submit-btn').click();
     await transactionPromise;
 
-    // Verify transaction appears in the list
-    await page.getByTestId('spending-tab-transactions').click();
-    await expect(page.getByTestId('transaction-description-table').filter({ hasText: 'E2E Feast' })).toBeVisible();
+    // Verify transaction appears in the Unified Activity Stream on /money
+    await page.getByTestId('nav-money').click();
+    await expectMoneyPage(page);
+    await expect(activityRow(page, 'E2E Feast')).toBeVisible();
 
     // 5. Trigger the background budget guardrails evaluator
     await triggerBudgetGuardrails(page);
@@ -176,18 +170,18 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     await expect(accountsSection.locator(`text=${accountName}`)).toBeVisible();
 
     await page.getByTestId('nav-spending').click();
-    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
+    await expectSpendingPage(page);
 
-    await page.getByTestId('spending-open-new-transaction').click();
-    await page.getByTestId('spending-transaction-amount').fill('42.25');
-    await selectFromCombobox(page.getByTestId('spending-transaction-category'), 'Other');
-    await selectFromCombobox(page.getByTestId('spending-transaction-account'), `${accountName} (wallet)`);
+    await page.getByTestId('header-quick-spending').click();
+    await page.getByTestId('transaction-amount-input').fill('42.25');
+    await selectFromCombobox(page.getByTestId('transaction-category-select'), 'Other');
+    await selectFromCombobox(page.getByTestId('transaction-account-select'), `${accountName} (wallet)`);
 
-    await page.getByTestId('spending-transaction-description').fill(description);
+    await page.getByTestId('transaction-description-input').fill(description);
     const transactionPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/spending/transactions') && res.request().method() === 'POST'
     );
-    await page.getByTestId('spending-transaction-save').click();
+    await page.getByTestId('transaction-submit-btn').click();
     const transactionResponse = await transactionPromise;
     expect(transactionResponse.ok()).toBeTruthy();
     const transaction = (await transactionResponse.json()) as {

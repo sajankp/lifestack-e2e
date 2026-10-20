@@ -385,7 +385,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await expect(card.getByText('Updated spending transaction tx-123')).toBeVisible();
     await expect(card.getByRole('link', { name: 'View →' })).toHaveAttribute(
       'href',
-      '/spending/transactions',
+      '/money',
     );
   });
 
@@ -623,7 +623,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await expect(incomeCard.getByText("Added $3500.00 'Monthly salary' to Spending")).toBeVisible();
     await expect(incomeCard.getByRole('link', { name: 'View →' })).toHaveAttribute(
       'href',
-      '/spending/transactions',
+      '/money',
     );
 
     // 2. Transfer capture contract
@@ -633,7 +633,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await expect(transferCard).toBeVisible();
     await expect(transferCard.getByRole('link', { name: 'View →' })).toHaveAttribute(
       'href',
-      '/spending/account-activity',
+      '/money',
     );
   });
 });

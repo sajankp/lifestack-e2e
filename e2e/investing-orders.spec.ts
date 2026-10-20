@@ -35,7 +35,7 @@ test.describe('Investing Orders E2E Flow', () => {
   });
 
   test('should place a buy order and verify holding is created', async ({ page }) => {
-    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('nav-portfolio').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
 
     await page.getByTestId('investing-hero-place-order').click();
@@ -82,7 +82,7 @@ test.describe('Investing Orders E2E Flow', () => {
     });
 
     // Place second buy via UI
-    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('nav-portfolio').click();
     await page.getByTestId('investing-hero-place-order').click();
 
     // The modal auto-selects the first brokerage account once the accounts
@@ -123,7 +123,7 @@ test.describe('Investing Orders E2E Flow', () => {
       occurred_at: new Date('2026-01-01').toISOString(),
     });
 
-    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('nav-portfolio').click();
     await page.getByTestId('investing-hero-place-order').click();
 
     // Wait for the modal's auto-selected default account (see the comment in
@@ -191,7 +191,7 @@ test.describe('Investing Orders E2E Flow', () => {
       occurred_at: new Date('2026-03-01').toISOString(),
     });
 
-    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('nav-portfolio').click();
     await page.getByTestId('investing-tab-orders').click();
     await expect(page.getByTestId('investing-orders-table')).toContainText('1,750');
 
@@ -206,7 +206,7 @@ test.describe('Investing Orders E2E Flow', () => {
     const smallBrokerage = await createBrokerageAccount(page, `Small Brokerage ${seed}`, 'USD');
     await transferCash(page, bankAccount.public_id, smallBrokerage.public_id, '100', 'USD');
 
-    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('nav-portfolio').click();
     await page.getByTestId('investing-hero-place-order').click();
 
     await page.getByTestId('order-account-select').click();
@@ -248,7 +248,7 @@ test.describe('Investing Orders E2E Flow', () => {
       occurred_at: new Date('2026-02-01').toISOString(),
     });
 
-    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('nav-portfolio').click();
     await page.getByTestId('investing-tab-orders').click();
 
     // Delete the second order — triggers a confirmation dialog
@@ -292,7 +292,7 @@ test.describe('Investing Orders E2E Flow', () => {
       currency: 'USD',
     });
 
-    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('nav-portfolio').click();
     await page.getByTestId('investing-tab-holdings').click();
 
     // Click Trade History on the MSFT holding
@@ -310,8 +310,19 @@ test.describe('Investing Orders E2E Flow', () => {
   });
 
   test('should show transfer-triggered cash balance entry', async ({ page }) => {
-    await page.getByTestId('nav-investing').click();
-    await page.getByTestId('investing-tab-cash').click();
+    test.skip(
+      true,
+      'The cash-balance feature has no web UI. The backend exposes full CRUD ' +
+        'for investing cash balances (app/investing/router.py) and the web has ' +
+        'client methods for all four operations, but no page renders them -- the ' +
+        'Cash tab was removed in the Oct restructure and nothing replaced it. ' +
+        'The old "investing-tab-cash" tab and its "cash-balance-trigger-type" ' +
+        'rows have no counterpart in the app, so this test cannot pass until the ' +
+        'cash-balance UI is built. See the cash-balance row in the dead-code ' +
+        'audit: the client methods (getCashBalances / createCashBalance / ' +
+        'updateCashBalance / deleteCashBalance) are all unreached by any page.',
+    );
+    await page.getByTestId('nav-portfolio').click();
 
     // The beforeEach already created a $10,000 transfer — verify it appears
     await expect(page.locator('[data-testid*="cash-balance-trigger-type"]')).toBeVisible();

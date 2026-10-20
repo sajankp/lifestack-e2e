@@ -4,6 +4,7 @@ import type { Locator } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 import { triggerRecurringTransactions } from './helpers/e2e-hooks';
 import { apiV1 } from './helpers/test-helpers';
+import { expectSpendingPage } from './helpers/ui';
 
 test.describe('Spending Recurring Transactions E2E Flow', () => {
   let testEmail = '';
@@ -25,6 +26,8 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
   });
 
   test('should create, edit, run generation, and deactivate a recurring rule', async ({ page }) => {
+    // The recurring-rule form renders its dropdowns in a fixed order:
+    // 0 = Category, 1 = Account, 2 = Type, 3 = Frequency.
     const selectFromCombobox = async (trigger: Locator, optionName: string) => {
       await trigger.click();
       await page.getByRole('option', { name: optionName, exact: true }).click();
@@ -53,7 +56,7 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
     // non-empty Recurring tab has no add affordance — flagged as a follow-up
     // gap from the header collapse).
     await page.getByTestId('nav-spending').click();
-    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
+    await expectSpendingPage(page);
     await page.getByTestId('spending-open-add-recurring').click();
 
     // 3. Fill Recurring Rule modal
@@ -160,6 +163,8 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
   });
 
   test('should calculate the next due date for a monthly rule on the 15th', async ({ page }) => {
+    // The recurring-rule form renders its dropdowns in a fixed order:
+    // 0 = Category, 1 = Account, 2 = Type, 3 = Frequency.
     const selectFromCombobox = async (trigger: Locator, optionName: string) => {
       await trigger.click();
       await page.getByRole('option', { name: optionName, exact: true }).click();
@@ -179,7 +184,7 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
     expect((await accountPromise).ok()).toBeTruthy();
 
     await page.getByTestId('nav-spending').click();
-    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
+    await expectSpendingPage(page);
     await page.getByTestId('spending-open-add-recurring').click();
     await selectFromCombobox(page.getByTestId('spending-recurring-category'), 'Food & Dining');
     await selectFromCombobox(

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
+import { expectMoneyPage, expectSpendingPage } from './helpers/ui';
 
 test.describe('Guided Empty States E2E Flow', () => {
   test('shows useful first-run states and primary actions across core modules', async ({
@@ -30,25 +31,33 @@ test.describe('Guided Empty States E2E Flow', () => {
     await expect(page.getByRole('button', { name: 'Add todo' })).toBeVisible();
 
     await page.getByTestId('nav-spending').click();
-    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
-    await expect(page.getByText('No transactions yet')).toBeVisible();
-    await expect(page.getByTestId('spending-open-new-transaction')).toBeVisible();
+    await expectSpendingPage(page);
+    // /spending is now four planning tabs (recurring / budgets / kpis /
+    // analytics); the transaction list moved to /money, so the default tab
+    // opens on Recurring and shows its empty state.
+    await expect(page.getByText('No recurring rules yet')).toBeVisible();
+    await expect(page.getByTestId('header-quick-spending')).toBeVisible();
     await page.getByTestId('spending-tab-budgets').click();
     await expect(page.getByText('No budgets set')).toBeVisible();
     await page.getByTestId('spending-tab-recurring').click();
     await expect(page.getByText('No recurring rules yet')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Add First Rule' })).toBeVisible();
-    // "Transfers" was merged into "Account activity" (formerly Ledger); with
-    // no account created yet, it prompts to pick one rather than listing rows.
-    await page.getByTestId('spending-tab-ledger').click();
-    await expect(page.getByText('Select an account')).toBeVisible();
+    // "Account activity" (formerly the Ledger tab) is now the "Unified
+    // Activity Stream" on /money. With no activity yet it shows the empty
+    // state rather than prompting to pick an account.
+    await page.getByTestId('nav-money').click();
+    await expectMoneyPage(page);
+    await expect(page.getByText('No activity recorded')).toBeVisible();
 
-    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('nav-portfolio').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
     await expect(page.getByText('No holdings yet.').filter({ visible: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Sync Latest Close' })).toBeVisible();
-    await page.getByTestId('investing-tab-cash').click();
-    await expect(page.getByTestId('investing-cash-empty')).toBeVisible();
+    // The investing page has three tabs (holdings / orders / analytics);
+    // the old "cash" tab and its "Sync Latest Close" button are gone after
+    // the restructure, so assert the tabs that exist.
+    await expect(page.getByTestId('investing-tab-holdings')).toBeVisible();
+    await expect(page.getByTestId('investing-tab-orders')).toBeVisible();
+    await expect(page.getByTestId('investing-tab-analytics')).toBeVisible();
 
     await page.getByTestId('nav-imports').click();
     await expect(page.getByRole('heading', { name: 'Bulk Imports' })).toBeVisible();
@@ -100,8 +109,8 @@ test.describe('Guided Empty States E2E Flow', () => {
 
     // UX Review Part 2 #5: Opening pristine New Transaction form must NOT show red error immediately
     await page.getByTestId('nav-spending').click();
-    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
-    await page.getByTestId('spending-open-new-transaction').click();
+    await expectSpendingPage(page);
+    await page.getByTestId('header-quick-spending').click();
     await expect(page.getByText(/Every transaction needs an account/i)).not.toBeVisible();
   });
 });

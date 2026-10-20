@@ -68,16 +68,16 @@ test.describe('Performance & API Caching E2E Spec', () => {
     await page.getByTestId('master-account-create').click();
 
     await page.getByTestId('nav-spending').click();
-    await page.getByTestId('spending-open-new-transaction').click();
-    await page.getByTestId('spending-transaction-amount').fill('25.00');
-    await selectFromCombobox(page.getByTestId('spending-transaction-category'), 'Other');
-    await selectFromCombobox(page.getByTestId('spending-transaction-account'), `${accountName} (wallet)`);
-    await page.getByTestId('spending-transaction-description').fill('Optimistic Cache Test');
+    await page.getByTestId('header-quick-spending').click();
+    await page.getByTestId('transaction-amount-input').fill('25.00');
+    await selectFromCombobox(page.getByTestId('transaction-category-select'), 'Other');
+    await selectFromCombobox(page.getByTestId('transaction-account-select'), `${accountName} (wallet)`);
+    await page.getByTestId('transaction-description-input').fill('Optimistic Cache Test');
 
     const transactionPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/spending/transactions') && res.request().method() === 'POST'
     );
-    await page.getByTestId('spending-transaction-save').click();
+    await page.getByTestId('transaction-submit-btn').click();
     await transactionPromise;
 
     await page.getByTestId('spending-tab-transactions').click();

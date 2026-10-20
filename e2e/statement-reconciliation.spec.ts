@@ -5,10 +5,26 @@ import { randomUUID } from 'node:crypto';
 
 import { test, expect } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
+import { expectSpendingPage } from './helpers/ui';
 
 // Coverage for spec-078 (wallet ledger reconciliation): import a bank
 // statement CSV against a wallet account, then match an unmatched statement
 // line to an existing spending transaction and confirm it moves to Matched.
+//
+// SKIPPED: the statement-reconciliation UI is no longer reachable. The Oct 2
+// web restructure (web PR #262, "streamline SpendingPage to 4 planning tabs")
+// deleted src/pages/spending/LedgerTab.tsx, which was the only page that
+// rendered src/components/finance/StatementReconciliation.tsx. That
+// component is now imported only by its own unit test, so none of the
+// statement-* test ids exist on any route (/money, /spending, /imports,
+// /portfolio were each checked). The API endpoints
+// (GET /v1/finance/accounts/{id}/statements and
+// GET .../statements/{id}/reconciliation) are still live, so the backend
+// capability is intact and only the UI is missing.
+//
+// This spec is skipped rather than deleted so the coverage can be restored
+// once the component is wired back into a page. Do not "fix" it by pointing
+// the selectors at a different page — that would assert the wrong thing.
 test.describe('Statement Reconciliation E2E Flow', () => {
   let testEmail = '';
   let testUsername = '';
@@ -42,6 +58,13 @@ test.describe('Statement Reconciliation E2E Flow', () => {
   });
 
   test('imports a statement and matches a line to an existing transaction @smoke @critical', async ({ page }) => {
+    test.skip(
+      true,
+      'Statement-reconciliation UI is unreachable: web PR #262 deleted LedgerTab.tsx, ' +
+        'which was the only renderer of StatementReconciliation.tsx. The backend ' +
+        'endpoints still work, so restore the UI and re-enable this spec.',
+    );
+
     const selectFromCombobox = async (trigger: ReturnType<typeof page.getByTestId>, optionName: string) => {
       await trigger.click();
       await page.getByRole('option', { name: optionName, exact: true }).click();
@@ -54,14 +77,14 @@ test.describe('Statement Reconciliation E2E Flow', () => {
     const description = `Reconcile txn ${randomUUID().slice(0, 8)}`;
 
     await page.getByTestId('nav-spending').click();
-    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
-    await page.getByTestId('spending-open-new-transaction').click();
-    await page.getByTestId('spending-transaction-amount').fill('42.50');
+    await expectSpendingPage(page);
+    await page.getByTestId('header-quick-spending').click();
+    await page.getByTestId('transaction-amount-input').fill('42.50');
     // Select a real seeded category instead of assuming the first option is a
     // category; the first option may be "+ Create new" and open a modal.
-    await selectFromCombobox(page.getByTestId('spending-transaction-category'), 'Food & Dining');
-    await selectFromCombobox(page.getByTestId('spending-transaction-account'), `${accountName} (wallet)`);
-    await page.getByTestId('spending-transaction-description').fill(description);
+    await selectFromCombobox(page.getByTestId('transaction-category-select'), 'Food & Dining');
+    await selectFromCombobox(page.getByTestId('transaction-account-select'), `${accountName} (wallet)`);
+    await page.getByTestId('transaction-description-input').fill(description);
     const transactionPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/spending/transactions') && res.request().method() === 'POST'
     );

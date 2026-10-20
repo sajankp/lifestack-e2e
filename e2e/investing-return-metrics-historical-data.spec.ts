@@ -67,7 +67,7 @@ test.describe('Investing Return Metrics & Net Worth Historical Data E2E Flow', (
       },
     });
 
-    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('nav-portfolio').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
     await page.getByTestId('investing-tab-analytics').click();
 

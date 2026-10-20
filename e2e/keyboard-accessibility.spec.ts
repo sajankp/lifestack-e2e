@@ -117,11 +117,11 @@ test.describe('Keyboard accessibility E2E Flow', () => {
 
     await expect(page.getByRole('heading', { name: 'Manage Categories' })).toHaveCount(0);
 
-    await tabUntilTestId(page, 'spending-open-new-transaction');
+    await tabUntilTestId(page, 'header-quick-spending');
     await page.keyboard.press('Enter');
     await expect(page.getByRole('heading', { name: 'New Transaction' })).toBeVisible();
 
-    await tabUntilTestId(page, 'spending-transaction-category');
+    await tabUntilTestId(page, 'transaction-category-select');
     await page.keyboard.press('Enter');
     await expect(page.getByRole('option', { name: categoryName, exact: true })).toBeVisible();
   });

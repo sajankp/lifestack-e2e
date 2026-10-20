@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
+import { activityRow, expectSpendingPage, selectActivityAccount } from './helpers/ui';
 import {
   apiV1,
   createAccount,
@@ -79,9 +80,7 @@ async function submitTransfer(
  * was deliberately dropped from the row per UX-REVIEW item 6).
  */
 async function selectLedgerAccount(page: Page, accountLabel: string): Promise<void> {
-  await page.getByTestId('spending-tab-ledger').click();
-  await page.getByTestId('ledger-account-select').click();
-  await page.getByRole('option', { name: accountLabel, exact: true }).click();
+  await selectActivityAccount(page, accountLabel);
 }
 
 async function expectLedgerTransferRow(
@@ -90,7 +89,7 @@ async function expectLedgerTransferRow(
   direction: 'Out' | 'In',
   amountText: string,
 ): Promise<void> {
-  const row = page.locator('tbody tr').filter({ hasText: notes });
+  const row = activityRow(page, notes);
   await expect(row).toBeVisible();
   await expect(row).toContainText(direction === 'Out' ? `Transfer → ${notes}` : `Transfer ← ${notes}`);
   await expect(row).toContainText(amountText);
@@ -124,7 +123,7 @@ test.describe('Transfer Flow E2E', () => {
     const authedGbpTarget = await createAccount(page, gbpTargetName, 'bank', 'GBP');
 
     await page.getByTestId('nav-spending').click();
-    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
+    await expectSpendingPage(page);
 
     await submitTransfer(page, usdSourceLabel, usdTargetLabel, '125.00', sameCurrencyNote);
     await selectLedgerAccount(page, usdSourceLabel);
