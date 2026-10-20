@@ -47,9 +47,16 @@ export async function expectInvestingPage(page: Page): Promise<void> {
  * History" table (src/components/finance/AccountDetailView.tsx), which
  * renders real <table>/<tbody>/<tr> rows -- use accountLedgerRow()
  * there, not activityRow().
+ *
+ * The rows are scoped to the stream's own list container. A bare
+ * "div.group" also matches the AccountMap cards above the stream, so an
+ * unscoped locator resolves to two elements and Playwright raises a
+ * strict-mode violation.
  */
 export function activityRow(page: Page, text: string): Locator {
-  return page.locator('div.group').filter({ hasText: text });
+  return page
+    .locator('div.divide-y.divide-slate-800\\/60 div.group')
+    .filter({ hasText: text });
 }
 
 /**

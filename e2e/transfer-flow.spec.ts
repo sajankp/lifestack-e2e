@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
-import { accountLedgerRow, expectMoneyPage, selectActivityAccount } from './helpers/ui';
+import {
+  accountLedgerRow,
+  activityRow,
+  expectMoneyPage,
+  selectActivityAccount,
+} from './helpers/ui';
 import {
   apiV1,
   createAccount,
@@ -85,15 +90,22 @@ async function selectLedgerAccount(page: Page, accountLabel: string): Promise<vo
 
 async function expectLedgerTransferRow(
   page: Page,
-  notes: string,
+  counterpartName: string,
   direction: 'Out' | 'In',
   amountText: string,
 ): Promise<void> {
   // After an account is selected the page shows the "Account Ledger &
   // History" table, whose rows are <tr> -- not the activity stream's divs.
-  const row = accountLedgerRow(page, notes);
+  //
+  // The API does not expose a transfer's notes in the activity feed: the
+  // description is always "Transfer to <target>" (or "Transfer from
+  // <source>" on the other side), and the counterpart account name is a
+  // separate field. So the row is matched on that description, not on the
+  // notes the transfer was created with.
+  const description = direction === 'Out' ? `Transfer to ${counterpartName}` : `Transfer from ${counterpartName}`;
+  const row = accountLedgerRow(page, description);
   await expect(row).toBeVisible();
-  await expect(row).toContainText(direction === 'Out' ? `Transfer → ${notes}` : `Transfer ← ${notes}`);
+  await expect(row).toContainText(description);
   await expect(row).toContainText(amountText);
 }
 
@@ -131,9 +143,9 @@ test.describe('Transfer Flow E2E', () => {
 
     await submitTransfer(page, usdSourceLabel, usdTargetLabel, '125.00', sameCurrencyNote);
     await selectLedgerAccount(page, usdSourceLabel);
-    await expectLedgerTransferRow(page, sameCurrencyNote, 'Out', '$125.00');
+    await expectLedgerTransferRow(page, usdTargetName, 'Out', '$125.00');
     await selectLedgerAccount(page, usdTargetLabel);
-    await expectLedgerTransferRow(page, sameCurrencyNote, 'In', '$125.00');
+    await expectLedgerTransferRow(page, usdSourceName, 'In', '$125.00');
 
     await submitTransfer(page, usdSourceLabel, gbpTargetLabel, '100.00', crossCurrencyNote, {
       fxRate: '0.8',
@@ -141,9 +153,9 @@ test.describe('Transfer Flow E2E', () => {
       platformFee: '2.00',
     });
     await selectLedgerAccount(page, usdSourceLabel);
-    await expectLedgerTransferRow(page, crossCurrencyNote, 'Out', '$100.00');
+    await expectLedgerTransferRow(page, gbpTargetName, 'Out', '$100.00');
     await selectLedgerAccount(page, gbpTargetLabel);
-    await expectLedgerTransferRow(page, crossCurrencyNote, 'In', '£77.00');
+    await expectLedgerTransferRow(page, usdSourceName, 'In', '£77.00');
 
     const invalidTransfer = await page.request.post(`${apiV1()}/finance/transfers`, {
       headers: await csrfHeaders(page),
@@ -225,15 +237,22 @@ test.describe('Transfer Flow E2E', () => {
     // Go to Account activity tab
     await selectLedgerAccount(page, usdSourceLabel);
 
-    // Verify transaction row displays the category
-    // Activity stream rows are divs, not <tr>.
+    // The account ledger table ("Account Ledger & History") has no
+    // Category column -- it shows Date / Type / Description / Amount /
+    // Running Balance / Actions. The category badge lives in the
+    // unfiltered Unified Activity Stream above it, so assert the
+    // description here and the category there.
     const txRow = accountLedgerRow(page, txDescription);
     await expect(txRow).toBeVisible();
-    await expect(txRow).toContainText(`Groceries ${suffix}`);
 
-    // Verify transfer row displays em dash in Category column
-    const transferRow = accountLedgerRow(page, transferNote);
+    // The category badge is on the unfiltered activity stream, and a
+    // transfer row carries no category badge at all (the old table
+    // rendered an em dash in that column; the stream simply omits it).
+    await expect(activityRow(page, txDescription)).toContainText(`Groceries ${suffix}`);
+    // A transfer's description in the feed is "Transfer to <target>" --
+    // the notes it was created with are not exposed by the activity feed.
+    const transferRow = activityRow(page, `Transfer to ${usdTargetName}`);
     await expect(transferRow).toBeVisible();
-    await expect(transferRow).toContainText('—');
+    await expect(transferRow).not.toContainText('Groceries');
   });
 });

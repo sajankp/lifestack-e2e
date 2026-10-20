@@ -360,13 +360,15 @@ test.describe('Workspace isolation E2E Flow', () => {
     await expect(page.getByText(personalTodoTitle)).toBeVisible();
     await expect(page.getByText(sharedTodoTitle)).toHaveCount(0);
 
-    await page.goto('/spending');
-    await expect(page.getByRole('heading', { name: 'Spending' })).toBeVisible();
+    // The transaction list lives on /money (the Unified Activity Stream)
+    // since the four-tab /spending restructure.
+    await page.goto('/money');
+    await expect(page.getByRole('heading', { name: 'Money Flow & Architecture' })).toBeVisible();
     await expect(page.getByTestId('header-workspace-select')).toHaveValue(
       personalWorkspace!.public_id,
     );
-    await expect(page.getByTestId('transaction-description-table').filter({ hasText: personalTransactionDescription })).toBeVisible();
-    await expect(page.getByTestId('transaction-description-table').filter({ hasText: sharedTransactionDescription })).toHaveCount(0);
+    await expect(activityRow(page, personalTransactionDescription)).toBeVisible();
+    await expect(activityRow(page, sharedTransactionDescription)).toHaveCount(0);
 
     await page.goto('/investing');
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();

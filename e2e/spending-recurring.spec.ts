@@ -287,6 +287,11 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
     await expect(page.getByTestId('spending-recurring-anchor-date')).toContainText('15-');
     await expect(page.getByTestId('spending-recurring-frequency')).toBeVisible();
 
+    // FormattedNumberInput keeps the raw value it was seeded with, and
+    // fill() appends to the existing text rather than replacing it -- so
+    // "15" + "16.00" became "15.0016.00" and the form rejected it with
+    // "Amount must be a valid positive number". Clear it first.
+    await editAmount.fill('');
     await editAmount.fill('16.00');
     const updateRequestPromise = page.waitForRequest(
       (request) =>
