@@ -54,9 +54,7 @@ export async function expectInvestingPage(page: Page): Promise<void> {
  * strict-mode violation.
  */
 export function activityRow(page: Page, text: string): Locator {
-  return page
-    .locator('div.divide-y.divide-slate-800\\/60 div.group')
-    .filter({ hasText: text });
+  return page.locator('div.divide-y > div.group').filter({ hasText: text });
 }
 
 /**
@@ -85,7 +83,12 @@ export async function selectActivityAccount(
   // button role, so it must be addressed as a combobox -- but the popover
   // it opens also contains a role="combobox" search input, so pick the
   // one that is not the search box.
-  const trigger = page.getByRole('combobox').filter({ hasText: 'All Accounts' });
+  //
+  // The trigger's label is "All Accounts" until an account is selected,
+  // and the selected account's name afterwards. The stream is the only
+  // thing on the page with this control, so take the combobox that is
+  // not the activity search box.
+  const trigger = page.getByRole('combobox').filter({ hasNotText: 'Search activity' });
   await trigger.click();
   await page.getByRole('option', { name: accountLabel, exact: true }).click();
 }

@@ -43,8 +43,10 @@ async function submitTransfer(
   await chooseSelectOption(page, 'Select source account', fromLabel);
   await chooseSelectOption(page, 'Select destination account', toLabel);
 
-  const numberInputs = modal.getByRole('spinbutton');
-  await numberInputs.nth(0).fill(amount);
+  // The modal's numeric fields are FormattedNumberInput (type="text"),
+  // not native number inputs, so they are addressed by their test ids
+  // rather than by the spinbutton role.
+  await modal.getByTestId('transfer-amount').fill(amount);
 
   // FX rate / fees live behind the "Add fees / cross-currency" disclosure —
   // it must be opened before those inputs are interactable.
@@ -52,16 +54,16 @@ async function submitTransfer(
     await modal.getByText('Add fees / cross-currency').click();
   }
   if (extras?.fxRate) {
-    await numberInputs.nth(1).fill(extras.fxRate);
+    await modal.getByTestId('transfer-fx-rate').fill(extras.fxRate);
   }
   if (extras?.fxFee) {
-    await numberInputs.nth(2).fill(extras.fxFee);
+    await modal.getByTestId('transfer-fx-fee').fill(extras.fxFee);
   }
   if (extras?.platformFee) {
-    await numberInputs.nth(3).fill(extras.platformFee);
+    await modal.getByTestId('transfer-platform-fee').fill(extras.platformFee);
   }
   if (extras?.tax) {
-    await numberInputs.nth(4).fill(extras.tax);
+    await modal.getByTestId('transfer-tax').fill(extras.tax);
   }
 
   await modal.getByPlaceholder('e.g. Top-up to wallet').fill(notes);
@@ -234,25 +236,24 @@ test.describe('Transfer Flow E2E', () => {
     await expectMoneyPage(page);
     await submitTransfer(page, usdSourceLabel, usdTargetLabel, '50.00', transferNote);
 
-    // Go to Account activity tab
-    await selectLedgerAccount(page, usdSourceLabel);
-
-    // The account ledger table ("Account Ledger & History") has no
-    // Category column -- it shows Date / Type / Description / Amount /
-    // Running Balance / Actions. The category badge lives in the
-    // unfiltered Unified Activity Stream above it, so assert the
-    // description here and the category there.
-    const txRow = accountLedgerRow(page, txDescription);
-    await expect(txRow).toBeVisible();
-
-    // The category badge is on the unfiltered activity stream, and a
-    // transfer row carries no category badge at all (the old table
-    // rendered an em dash in that column; the stream simply omits it).
+    // The category badge lives in the Unified Activity Stream, and only
+    // there: the "Account Ledger & History" table that replaces the
+    // stream once an account is selected has no Category column at all
+    // (Date / Type / Description / Amount / Running Balance / Actions).
+    // So assert the category first, against the unfiltered stream, and
+    // only then drill into the account.
     await expect(activityRow(page, txDescription)).toContainText(`Groceries ${suffix}`);
     // A transfer's description in the feed is "Transfer to <target>" --
     // the notes it was created with are not exposed by the activity feed.
+    // A transfer row carries no category badge (the old table rendered an
+    // em dash in that column; the stream simply omits it).
     const transferRow = activityRow(page, `Transfer to ${usdTargetName}`);
     await expect(transferRow).toBeVisible();
     await expect(transferRow).not.toContainText('Groceries');
+
+    // Now drill into the account and check the ledger table.
+    await selectLedgerAccount(page, usdSourceLabel);
+    const txRow = accountLedgerRow(page, txDescription);
+    await expect(txRow).toBeVisible();
   });
 });
