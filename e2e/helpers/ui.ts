@@ -80,7 +80,13 @@ export async function selectActivityAccount(
   page: Page,
   accountLabel: string,
 ): Promise<void> {
-  await page.getByRole('combobox').first().click();
+  // The filter is a shadcn-style DropdownSelect whose trigger is a
+  // <button role="combobox">. The explicit role overrides the implicit
+  // button role, so it must be addressed as a combobox -- but the popover
+  // it opens also contains a role="combobox" search input, so pick the
+  // one that is not the search box.
+  const trigger = page.getByRole('combobox').filter({ hasText: 'All Accounts' });
+  await trigger.click();
   await page.getByRole('option', { name: accountLabel, exact: true }).click();
 }
 

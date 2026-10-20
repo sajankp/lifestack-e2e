@@ -7,6 +7,7 @@ import {
   transferCash,
 } from './helpers/test-helpers';
 import { activityRow } from './helpers/ui';
+import { retryUnauthorized } from './helpers/api';
 
 const PASSWORD = 'Password123!';
 
@@ -37,10 +38,15 @@ async function loginViaApi(request: APIRequestContext, credentials: Credentials)
     password: credentials.password,
   });
 
-  const response = await request.post(`${apiV1()}/auth/login`, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    data: params.toString(),
-  });
+  // The registration that precedes this commits at the end of its request,
+  // so an immediate login can still miss the new user. retryUnauthorized
+  // already exists for that pattern.
+  const response = await retryUnauthorized(() =>
+    request.post(`${apiV1()}/auth/login`, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      data: params.toString(),
+    }),
+  );
 
   expect(response.status(), `Login failed for ${credentials.email}: ${await response.text()}`).toBe(200);
 }
