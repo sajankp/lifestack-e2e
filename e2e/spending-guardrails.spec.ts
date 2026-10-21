@@ -63,11 +63,19 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     const categoryResponse = await categoryPromise;
     expect(categoryResponse.ok()).toBeTruthy();
 
-    // 3. Set a budget for the custom category
+    // 3. Set a budget for the custom category.
+    //
+    // The "New Budget" button only renders on the Budgets tab (the
+    // /spending page is four planning tabs, and the budget action lives
+    // with the budgets). The default tab is Recurring.
+    await page.getByTestId('spending-tab-budgets').click();
     await page.getByTestId('spending-open-set-budget').click();
-    const budgetForm = page.locator('form').filter({ has: page.getByRole('button', { name: 'Save Budget' }) }).first();
     await selectFromCombobox(page.getByTestId('spending-budget-category'), customCategory);
-    await budgetForm.getByRole('spinbutton', { name: 'Budget Limit' }).fill('100');
+    // The budget amount field is a FormattedNumberInput (type="text")
+    // with no accessible name, so it is addressed by its test id.
+    const budgetAmount = page.getByTestId('spending-budget-amount');
+    await budgetAmount.fill('');
+    await budgetAmount.fill('100');
     const budgetPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/spending/budgets') && res.request().method() === 'POST'
     );
@@ -83,7 +91,11 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     // so there is nothing left to assert about their collapsed state here.
 
     // 4. Log a transaction breaching warning threshold (95%)
+    // The header's quick-add navigates to /money?new=1, which opens the
+    // transaction modal once the page has navigated. Wait for the modal
+    // before touching its fields.
     await page.getByTestId('header-quick-spending').click();
+    await expect(page.getByTestId('transaction-amount-input')).toBeVisible({ timeout: 15000 });
     await page.getByTestId('transaction-amount-input').fill('95');
     await selectFromCombobox(page.getByTestId('transaction-category-select'), customCategory);
     await selectFromCombobox(page.getByTestId('transaction-account-select'), `${accountName} (wallet)`);
@@ -175,7 +187,11 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     await page.getByTestId('nav-spending').click();
     await expectSpendingPage(page);
 
+    // The header's quick-add navigates to /money?new=1, which opens the
+    // transaction modal once the page has navigated. Wait for the modal
+    // before touching its fields.
     await page.getByTestId('header-quick-spending').click();
+    await expect(page.getByTestId('transaction-amount-input')).toBeVisible({ timeout: 15000 });
     await page.getByTestId('transaction-amount-input').fill('42.25');
     await selectFromCombobox(page.getByTestId('transaction-category-select'), 'Other');
     await selectFromCombobox(page.getByTestId('transaction-account-select'), `${accountName} (wallet)`);
@@ -215,7 +231,7 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
         res.request().method() === 'GET'
       );
     });
-    await selectFromCombobox(page.getByTestId('spending-account-filter'), `${accountName} (wallet)`);
+    await selectFromCombobox(page.getByTestId('activity-feed-account-filter'), `${accountName} (wallet)`);
     expect((await filteredRequest).ok()).toBeTruthy();
     await expect(row).toBeVisible();
   });
