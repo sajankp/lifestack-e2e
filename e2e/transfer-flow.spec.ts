@@ -176,7 +176,12 @@ test.describe('Transfer Flow E2E', () => {
     await selectLedgerAccount(page, usdSourceLabel);
     await expectLedgerTransferRow(page, gbpTargetName, 'Out', '$100.00');
     await selectLedgerAccount(page, gbpTargetLabel);
-    await expectLedgerTransferRow(page, usdSourceName, 'In', '£77.00');
+    // The modal's rate field is quoted in the "1 GBP = X USD" direction, so
+    // entering 0.8 means 1 USD = 1.25 GBP. The API's contract is
+    // net = gross * fx_rate_used - fees, with fx_rate_used expressed as
+    // to-currency per 1 from-currency, so 100 USD becomes
+    // 100 * 1.25 = 125.00 GBP gross, minus 3.00 GBP of fees = 122.00 GBP.
+    await expectLedgerTransferRow(page, usdSourceName, 'In', '£122.00');
 
     const invalidTransfer = await page.request.post(`${apiV1()}/finance/transfers`, {
       headers: await csrfHeaders(page),
