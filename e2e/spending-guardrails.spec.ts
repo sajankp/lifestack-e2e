@@ -82,6 +82,11 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     await page.getByTestId('spending-budget-save').click();
     await budgetPromise;
 
+    // The HTTP response arrives before React has closed the budget dialog, so
+    // the dialog is still intercepting pointer events for a moment. Wait for
+    // it to close before clicking a tab behind it.
+    await expect(page.getByTestId('spending-budget-save')).toBeHidden({ timeout: 15000 });
+
     // Verify budget card is created & header bloat is collapsed on secondary sub-tab
     await page.getByTestId('spending-tab-budgets').click();
     await expect(page.locator(`text=${customCategory}`)).toBeVisible();
@@ -223,10 +228,12 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     await expect(row).toContainText(accountName);
     await expect(row).toContainText('USD');
 
+    // The account filter drives the ?account= URL param, which refetches the
+    // unified activity feed. It does not call /spending/transactions.
     const filteredRequest = page.waitForResponse((res) => {
       const url = new URL(res.url());
       return (
-        url.pathname.endsWith('/v1/spending/transactions') &&
+        url.pathname.endsWith('/v1/finance/activity-feed') &&
         url.searchParams.get('account_id') === account.public_id &&
         res.request().method() === 'GET'
       );
