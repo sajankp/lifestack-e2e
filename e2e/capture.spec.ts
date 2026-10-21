@@ -619,7 +619,10 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await input.fill('Log my monthly salary of 3500');
     await input.press('Enter');
     const incomeCard = page.getByTestId('confirmation-card').filter({ hasText: 'Monthly salary' });
-    await expect(incomeCard).toBeVisible();
+    // The mocked WebSocket needs a beat to attach and deliver the
+    // tool_response; the default 5s was tight enough to fail
+    // intermittently.
+    await expect(incomeCard).toBeVisible({ timeout: 15000 });
     await expect(incomeCard.getByText("Added $3500.00 'Monthly salary' to Spending")).toBeVisible();
     await expect(incomeCard.getByRole('link', { name: 'View →' })).toHaveAttribute(
       'href',
@@ -630,7 +633,7 @@ test.describe('Voice Agent Widget / Capture Flow E2E', () => {
     await input.fill('Transfer 500 from checking to brokerage');
     await input.press('Enter');
     const transferCard = page.getByTestId('confirmation-card').filter({ hasText: 'Transferred 500.00 USD' });
-    await expect(transferCard).toBeVisible();
+    await expect(transferCard).toBeVisible({ timeout: 15000 });
     await expect(transferCard.getByRole('link', { name: 'View →' })).toHaveAttribute(
       'href',
       '/money',
