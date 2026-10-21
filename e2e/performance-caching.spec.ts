@@ -69,7 +69,11 @@ test.describe('Performance & API Caching E2E Spec', () => {
     await page.getByTestId('master-account-create').click();
 
     await page.getByTestId('nav-spending').click();
+    // The header's quick-add navigates to /money?new=1, which opens the
+    // transaction modal once the page has navigated. Wait for the modal
+    // before touching its fields.
     await page.getByTestId('header-quick-spending').click();
+    await expect(page.getByTestId('transaction-amount-input')).toBeVisible({ timeout: 15000 });
     await page.getByTestId('transaction-amount-input').fill('25.00');
     await selectFromCombobox(page.getByTestId('transaction-category-select'), 'Other');
     await selectFromCombobox(page.getByTestId('transaction-account-select'), `${accountName} (wallet)`);
