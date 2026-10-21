@@ -78,16 +78,24 @@ export async function selectActivityAccount(
   page: Page,
   accountLabel: string,
 ): Promise<void> {
+  // Selecting an account replaces the Unified Activity Stream with the
+  // "Account Ledger & History" table, and the account filter lives in
+  // the stream. So when a drill-down is already open, go back to the
+  // stream first.
+  const back = page.getByTestId('account-detail-back');
+  if (await back.count()) {
+    await back.click();
+  }
+
   // The filter is a shadcn-style DropdownSelect whose trigger is a
   // <button role="combobox">. The explicit role overrides the implicit
   // button role, so it must be addressed as a combobox -- but the popover
   // it opens also contains a role="combobox" search input, so pick the
   // one that is not the search box.
   //
-  // The trigger's label is "All Accounts" until an account is selected,
-  // and the selected account's name afterwards. The stream is the only
-  // thing on the page with this control, so take the combobox that is
-  // not the activity search box.
+  // The trigger's label is "All Accounts" until an account is selected
+  // and the selected account's name afterwards, so do not match on the
+  // label.
   const trigger = page.getByRole('combobox').filter({ hasNotText: 'Search activity' });
   await trigger.click();
   await page.getByRole('option', { name: accountLabel, exact: true }).click();

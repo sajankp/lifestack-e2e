@@ -36,6 +36,15 @@ async function submitTransfer(
   // Two "Transfer" triggers can coexist: the page-level hero action (always
   // mounted, first in DOM order) and the Account activity tab's local one
   // (only mounted while that tab is active) — pin to the hero button.
+  // The page offers "Transfer" (the hero action) and, once an account
+  // drill-down is open, "Transfer Money" (the account detail view's own
+  // action, which preselects that account as the source). The hero
+  // button leaves the source unset so the test can choose it, so leave
+  // any open drill-down first.
+  const back = page.getByTestId('account-detail-back');
+  if (await back.count()) {
+    await back.click();
+  }
   await page.getByRole('button', { name: 'Transfer', exact: true }).first().click();
   const modal = page.locator('.fixed').filter({ hasText: 'Transfer Between Wallets/Accounts' });
   await expect(modal.getByText('Transfer Between Wallets/Accounts')).toBeVisible();
@@ -46,24 +55,34 @@ async function submitTransfer(
   // The modal's numeric fields are FormattedNumberInput (type="text"),
   // not native number inputs, so they are addressed by their test ids
   // rather than by the spinbutton role.
+  await modal.getByTestId('transfer-amount').fill('');
   await modal.getByTestId('transfer-amount').fill(amount);
 
-  // FX rate / fees live behind the "Add fees / cross-currency" disclosure —
-  // it must be opened before those inputs are interactable.
+  // The "Add fees / cross-currency" disclosure auto-opens when a
+  // cross-currency pair is selected, so it does not need to be expanded
+  // here. Clicking its summary would actually CLOSE it again.
   if (extras?.fxRate || extras?.fxFee || extras?.platformFee || extras?.tax) {
-    await modal.getByText('Add fees / cross-currency').click();
+    await expect(modal.locator('details')).toHaveAttribute('open', '');
   }
+  // The fee fields are seeded with "0", and a formatted input keeps its
+  // raw value, so fill() appends to it -- "0" + "1.00" is "01.00". Clear
+  // each field before filling it.
+  const fillNumber = async (testId: string, value: string) => {
+    const field = modal.getByTestId(testId);
+    await field.fill('');
+    await field.fill(value);
+  };
   if (extras?.fxRate) {
-    await modal.getByTestId('transfer-fx-rate').fill(extras.fxRate);
+    await fillNumber('transfer-fx-rate', extras.fxRate);
   }
   if (extras?.fxFee) {
-    await modal.getByTestId('transfer-fx-fee').fill(extras.fxFee);
+    await fillNumber('transfer-fx-fee', extras.fxFee);
   }
   if (extras?.platformFee) {
-    await modal.getByTestId('transfer-platform-fee').fill(extras.platformFee);
+    await fillNumber('transfer-platform-fee', extras.platformFee);
   }
   if (extras?.tax) {
-    await modal.getByTestId('transfer-tax').fill(extras.tax);
+    await fillNumber('transfer-tax', extras.tax);
   }
 
   await modal.getByPlaceholder('e.g. Top-up to wallet').fill(notes);
