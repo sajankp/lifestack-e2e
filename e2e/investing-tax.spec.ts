@@ -68,7 +68,11 @@ test.describe('Capital Gains Tax Estimate E2E Spec', () => {
 
     brokerageAccount = await createBrokerageAccount(page, `Brokerage ${seed}`, 'USD');
     bankAccount = await createSpendingAccount(page, `Bank ${seed}`, 'USD');
-    await transferCash(page, bankAccount.public_id, brokerageAccount.public_id, '10000', 'USD');
+    // Fund with headroom over the largest order in this spec: the 87A
+    // test buys 100 shares at 100 = 10,000 USD, and a buy also needs
+    // room for its fees. Transferring exactly 10,000 tips the order into
+    // "Insufficient cash balance".
+    await transferCash(page, bankAccount.public_id, brokerageAccount.public_id, '50000', 'USD');
   });
 
   test('shows the Tax tab with an empty state when there are no sells', async ({ page }) => {
