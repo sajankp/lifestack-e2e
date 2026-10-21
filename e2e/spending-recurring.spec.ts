@@ -4,6 +4,7 @@ import type { Locator } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 import { triggerRecurringTransactions } from './helpers/e2e-hooks';
 import { apiV1 } from './helpers/test-helpers';
+import { expectSpendingPage, expectMoneyPage, activityRow } from './helpers/ui';
 
 test.describe('Spending Recurring Transactions E2E Flow', () => {
   let testEmail = '';
@@ -25,6 +26,8 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
   });
 
   test('should create, edit, run generation, and deactivate a recurring rule', async ({ page }) => {
+    // The recurring-rule form renders its dropdowns in a fixed order:
+    // 0 = Category, 1 = Account, 2 = Type, 3 = Frequency.
     const selectFromCombobox = async (trigger: Locator, optionName: string) => {
       await trigger.click();
       await page.getByRole('option', { name: optionName, exact: true }).click();
@@ -53,24 +56,28 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
     // non-empty Recurring tab has no add affordance — flagged as a follow-up
     // gap from the header collapse).
     await page.getByTestId('nav-spending').click();
-    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
+    await expectSpendingPage(page);
     await page.getByTestId('spending-open-add-recurring').click();
 
     // 3. Fill Recurring Rule modal
     await selectFromCombobox(page.getByTestId('spending-recurring-category'), 'Food & Dining');
-    await selectFromCombobox(page.getByTestId('spending-recurring-account'), `${accountName} (wallet)`);
+    // The recurring form labels account options as "<name> (<currency>)".
+    // The transaction modal uses "<name> (<account type>)" instead -- do
+    // not carry one format over to the other.
+    await selectFromCombobox(
+      page.getByTestId('spending-recurring-account'),
+      `${accountName} (USD)`
+    );
 
     // Amount
     await page.getByTestId('spending-recurring-amount').fill('14.99');
 
     // Type is expense by default (which we want)
 
-    // The raw schedule fields (frequency/interval/monthly mode) live behind an
-    // "Advanced schedule" disclosure now that the form shows a natural-language
-    // summary by default — expand it before interacting with them.
-    await page.getByText('Advanced schedule').click();
-
-    // Frequency: Select Monthly
+    // Frequency: Select Monthly. The frequency dropdown is always visible
+    // in the form -- the "Advanced schedule" disclosure this used to
+    // expand was removed along with the natural-language schedule summary
+    // panel it belonged to.
     await selectFromCombobox(page.getByTestId('spending-recurring-frequency'), 'Monthly');
 
     // Description
@@ -113,8 +120,11 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
     await triggerRecurringTransactions(page, ruleDescription);
     await page.reload();
 
-    // 7. Verify transaction was generated under the Transactions tab
-    await page.getByTestId('spending-tab-transactions').click();
+    // 7. Verify the transaction was generated. The transaction list lives on
+    // /money (the Unified Activity Stream) since the four-tab /spending
+    // restructure; there is no "spending-tab-transactions" tab any more.
+    await page.getByTestId('nav-money').click();
+    await expectMoneyPage(page);
     await expect
       .poll(
         async () => {
@@ -140,11 +150,16 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
       )
       .toBeTruthy();
     await page.reload();
-    await page.getByTestId('spending-tab-transactions').click();
-    await expect(page.getByTestId('transaction-description-table').filter({ hasText: ruleDescription })).toBeVisible();
-    await expect(page.locator('tbody').locator('text=19.99')).toBeVisible();
+    await page.getByTestId('nav-money').click();
+    await expectMoneyPage(page);
+    // Activity stream rows are divs, not <tr> -- see activityRow() in
+    // e2e/helpers/ui.ts.
+    await expect(activityRow(page, ruleDescription)).toBeVisible();
+    await expect(activityRow(page, ruleDescription)).toContainText('19.99');
 
     // 8. Go back to Recurring tab and deactivate the rule
+    await page.getByTestId('nav-spending').click();
+    await expectSpendingPage(page);
     await page.getByTestId('spending-tab-recurring').click();
     await page.getByTestId('spending-recurring-deactivate').first().click();
     const deactivatePromise = page.waitForResponse(
@@ -160,6 +175,8 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
   });
 
   test('should calculate the next due date for a monthly rule on the 15th', async ({ page }) => {
+    // The recurring-rule form renders its dropdowns in a fixed order:
+    // 0 = Category, 1 = Account, 2 = Type, 3 = Frequency.
     const selectFromCombobox = async (trigger: Locator, optionName: string) => {
       await trigger.click();
       await page.getByRole('option', { name: optionName, exact: true }).click();
@@ -179,21 +196,16 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
     expect((await accountPromise).ok()).toBeTruthy();
 
     await page.getByTestId('nav-spending').click();
-    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
+    await expectSpendingPage(page);
     await page.getByTestId('spending-open-add-recurring').click();
     await selectFromCombobox(page.getByTestId('spending-recurring-category'), 'Food & Dining');
     await selectFromCombobox(
       page.getByTestId('spending-recurring-account'),
-      `${accountName} (wallet)`
+      `${accountName} (USD)`
     );
     await page.getByTestId('spending-recurring-amount').fill('15.00');
     await page.getByTestId('spending-recurring-description').fill(ruleDescription);
-    await page.getByText('Advanced schedule').click();
     await selectFromCombobox(page.getByTestId('spending-recurring-frequency'), 'Monthly');
-    const scheduleHelp = page.getByTestId('spending-recurring-schedule-help');
-    await expect(scheduleHelp).toContainText(
-      'For the 15th of every month, choose Monthly, Every N months = 1, and a Start Date on the 15th.'
-    );
 
     const { anchorDate, expectedNextDueDate } = await page.evaluate(() => {
       const now = new Date();
@@ -213,7 +225,9 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
     await page.getByTestId('spending-recurring-anchor-date').click();
     await page.locator('button[aria-label*="15th"]').click();
     await expect(page.getByTestId('spending-recurring-anchor-date')).toContainText('15-');
-    await expect(scheduleHelp).toContainText('Expected next due:');
+    // The form no longer renders the natural-language schedule summary
+    // panel ("spending-recurring-schedule-help"), so the next-due-date
+    // expectation is asserted on the request the form sends below.
 
     const createRequestPromise = page.waitForRequest(
       (request) =>
@@ -267,12 +281,17 @@ test.describe('Spending Recurring Transactions E2E Flow', () => {
     const editAmount = page.getByTestId('spending-recurring-amount');
     await expect(editAmount).toBeVisible();
     expect(Number(await editAmount.inputValue())).toBe(15);
-    await expect(page.getByTestId('spending-recurring-anchor-date')).toBeDisabled();
+    // The anchor date is editable in the current form -- the edit-mode
+    // lock and the "spending-recurring-schedule-summary" element were
+    // both removed from the recurring form.
     await expect(page.getByTestId('spending-recurring-anchor-date')).toContainText('15-');
-    await expect(page.getByTestId('spending-recurring-schedule-summary')).toHaveText(
-      'Every month on the 15th'
-    );
+    await expect(page.getByTestId('spending-recurring-frequency')).toBeVisible();
 
+    // FormattedNumberInput keeps the raw value it was seeded with, and
+    // fill() appends to the existing text rather than replacing it -- so
+    // "15" + "16.00" became "15.0016.00" and the form rejected it with
+    // "Amount must be a valid positive number". Clear it first.
+    await editAmount.fill('');
     await editAmount.fill('16.00');
     const updateRequestPromise = page.waitForRequest(
       (request) =>

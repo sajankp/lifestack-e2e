@@ -16,6 +16,7 @@
  */
 
 import { test, expect, type APIRequestContext } from '@playwright/test';
+import { retryUnauthorized } from './helpers/api';
 import { apiV1, csrfHeaders } from './helpers/test-helpers';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -69,7 +70,9 @@ async function registerViaApi(
   // Use loginViaApi which handles database commit retries
   await loginViaApi(request, creds.email, creds.password);
 
-  const meRes = await request.get(`${apiV1()}/auth/me`);
+  // A freshly-registered user's session can answer 401 for the first
+  // request; retryUnauthorized already exists for that pattern.
+  const meRes = await retryUnauthorized(() => request.get(`${apiV1()}/auth/me`));
   expect(meRes.status()).toBe(200);
   const meBody = (await meRes.json()) as { public_id: string };
 

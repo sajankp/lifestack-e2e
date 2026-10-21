@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 import type { Locator } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 import { triggerBudgetGuardrails } from './helpers/e2e-hooks';
+import { accountLedgerRow, activityRow, expectMoneyPage, expectSpendingPage } from './helpers/ui';
 
 test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
   let testEmail = '';
@@ -46,12 +47,15 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
 
     // 1. Navigate to Spending tab
     await page.getByTestId('nav-spending').click();
-    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
+    await expectSpendingPage(page);
 
     // 2. Open Manage Categories and add a custom category
     await page.getByTestId('spending-open-manage-categories').click();
     await page.getByTestId('spending-category-name').fill(customCategory);
-    await page.getByTestId('spending-category-icon').fill('🍔');
+    // The colour field is <input type="color">, which only accepts a hex
+    // value -- the old spec filled it with an emoji, which the browser
+    // rejects as a malformed value.
+    await page.getByTestId('spending-category-color').fill('#f59e0b');
     const categoryPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/spending/categories') && res.request().method() === 'POST'
     );
@@ -59,48 +63,58 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     const categoryResponse = await categoryPromise;
     expect(categoryResponse.ok()).toBeTruthy();
 
-    // 3. Set a budget for the custom category
+    // 3. Set a budget for the custom category.
+    //
+    // The "New Budget" button only renders on the Budgets tab (the
+    // /spending page is four planning tabs, and the budget action lives
+    // with the budgets). The default tab is Recurring.
+    await page.getByTestId('spending-tab-budgets').click();
     await page.getByTestId('spending-open-set-budget').click();
-    const budgetForm = page.locator('form').filter({ has: page.getByRole('button', { name: 'Save Budget' }) }).first();
     await selectFromCombobox(page.getByTestId('spending-budget-category'), customCategory);
-    await budgetForm.getByRole('spinbutton', { name: 'Budget Limit' }).fill('100');
+    // The budget amount field is a FormattedNumberInput (type="text")
+    // with no accessible name, so it is addressed by its test id.
+    const budgetAmount = page.getByTestId('spending-budget-amount');
+    await budgetAmount.fill('');
+    await budgetAmount.fill('100');
     const budgetPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/spending/budgets') && res.request().method() === 'POST'
     );
     await page.getByTestId('spending-budget-save').click();
     await budgetPromise;
 
+    // The HTTP response arrives before React has closed the budget dialog, so
+    // the dialog is still intercepting pointer events for a moment. Wait for
+    // it to close before clicking a tab behind it.
+    await expect(page.getByTestId('spending-budget-save')).toBeHidden({ timeout: 15000 });
+
     // Verify budget card is created & header bloat is collapsed on secondary sub-tab
     await page.getByTestId('spending-tab-budgets').click();
     await expect(page.locator(`text=${customCategory}`)).toBeVisible();
 
-    // UX Review P2 #1: Header summary block should be collapsed on secondary tab
-    const summaryCardBlock = page.getByTestId('spending-summary-cards-block');
-    if (await summaryCardBlock.isVisible()) {
-      await expect(summaryCardBlock).toHaveClass(/collapsed|hidden|compact/i);
-    }
-
-    // UX Review P1 #5: Spending filter bar should be disabled or hidden on Budgets tab
-    const filterBar = page.getByTestId('spending-filter-bar');
-    if (await filterBar.isVisible()) {
-      await expect(filterBar).toHaveAttribute('aria-disabled', 'true');
-    }
+    // The summary-cards block and the spending filter bar were removed by
+    // the restructure (the planning tabs on /spending no longer carry them),
+    // so there is nothing left to assert about their collapsed state here.
 
     // 4. Log a transaction breaching warning threshold (95%)
-    await page.getByTestId('spending-open-new-transaction').click();
-    await page.getByTestId('spending-transaction-amount').fill('95');
-    await selectFromCombobox(page.getByTestId('spending-transaction-category'), customCategory);
-    await selectFromCombobox(page.getByTestId('spending-transaction-account'), `${accountName} (wallet)`);
-    await page.getByTestId('spending-transaction-description').fill('E2E Feast');
+    // The header's quick-add navigates to /money?new=1, which opens the
+    // transaction modal once the page has navigated. Wait for the modal
+    // before touching its fields.
+    await page.getByTestId('header-quick-spending').click();
+    await expect(page.getByTestId('transaction-amount-input')).toBeVisible({ timeout: 15000 });
+    await page.getByTestId('transaction-amount-input').fill('95');
+    await selectFromCombobox(page.getByTestId('transaction-category-select'), customCategory);
+    await selectFromCombobox(page.getByTestId('transaction-account-select'), `${accountName} (wallet)`);
+    await page.getByTestId('transaction-description-input').fill('E2E Feast');
     const transactionPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/spending/transactions') && res.request().method() === 'POST'
     );
-    await page.getByTestId('spending-transaction-save').click();
+    await page.getByTestId('transaction-submit-btn').click();
     await transactionPromise;
 
-    // Verify transaction appears in the list
-    await page.getByTestId('spending-tab-transactions').click();
-    await expect(page.getByTestId('transaction-description-table').filter({ hasText: 'E2E Feast' })).toBeVisible();
+    // Verify transaction appears in the Unified Activity Stream on /money
+    await page.getByTestId('nav-money').click();
+    await expectMoneyPage(page);
+    await expect(activityRow(page, 'E2E Feast')).toBeVisible();
 
     // 5. Trigger the background budget guardrails evaluator
     await triggerBudgetGuardrails(page);
@@ -176,18 +190,22 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     await expect(accountsSection.locator(`text=${accountName}`)).toBeVisible();
 
     await page.getByTestId('nav-spending').click();
-    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
+    await expectSpendingPage(page);
 
-    await page.getByTestId('spending-open-new-transaction').click();
-    await page.getByTestId('spending-transaction-amount').fill('42.25');
-    await selectFromCombobox(page.getByTestId('spending-transaction-category'), 'Other');
-    await selectFromCombobox(page.getByTestId('spending-transaction-account'), `${accountName} (wallet)`);
+    // The header's quick-add navigates to /money?new=1, which opens the
+    // transaction modal once the page has navigated. Wait for the modal
+    // before touching its fields.
+    await page.getByTestId('header-quick-spending').click();
+    await expect(page.getByTestId('transaction-amount-input')).toBeVisible({ timeout: 15000 });
+    await page.getByTestId('transaction-amount-input').fill('42.25');
+    await selectFromCombobox(page.getByTestId('transaction-category-select'), 'Other');
+    await selectFromCombobox(page.getByTestId('transaction-account-select'), `${accountName} (wallet)`);
 
-    await page.getByTestId('spending-transaction-description').fill(description);
+    await page.getByTestId('transaction-description-input').fill(description);
     const transactionPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/spending/transactions') && res.request().method() === 'POST'
     );
-    await page.getByTestId('spending-transaction-save').click();
+    await page.getByTestId('transaction-submit-btn').click();
     const transactionResponse = await transactionPromise;
     expect(transactionResponse.ok()).toBeTruthy();
     const transaction = (await transactionResponse.json()) as {
@@ -197,8 +215,16 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     expect(transaction.account_id).toBe(account.public_id);
     expect(transaction.description).toBe(description);
 
-    await page.getByTestId('spending-tab-transactions').click();
-    const row = page.locator('tbody tr').filter({ hasText: description });
+    // The transaction list lives on /money (the Unified Activity Stream)
+    // since the four-tab /spending restructure; the rows are divs, not
+    // <tr>. See activityRow() in e2e/helpers/ui.ts.
+    //
+    // Once an account is selected, /money swaps the stream for the
+    // account drill-down, whose rows are <tr> in a table -- so the row
+    // locator has to change with it (accountLedgerRow, not activityRow).
+    await page.getByTestId('nav-money').click();
+    await expectMoneyPage(page);
+    const row = activityRow(page, description);
     await expect(row).toBeVisible();
     // The lowercase account-type pill ("wallet") was collapsed out of the SOURCE
     // column by the 2026-07-16 UX review fixes (pill-noise reduction) — the row
@@ -206,16 +232,19 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     await expect(row).toContainText(accountName);
     await expect(row).toContainText('USD');
 
+    // The account filter drives the ?account= URL param, which refetches the
+    // unified activity feed. It does not call /spending/transactions.
     const filteredRequest = page.waitForResponse((res) => {
       const url = new URL(res.url());
       return (
-        url.pathname.endsWith('/v1/spending/transactions') &&
+        url.pathname.endsWith('/v1/finance/activity-feed') &&
         url.searchParams.get('account_id') === account.public_id &&
         res.request().method() === 'GET'
       );
     });
-    await selectFromCombobox(page.getByTestId('spending-account-filter'), `${accountName} (wallet)`);
+    await selectFromCombobox(page.getByTestId('activity-feed-account-filter'), `${accountName} (wallet)`);
     expect((await filteredRequest).ok()).toBeTruthy();
-    await expect(row).toBeVisible();
+    // The drill-down renders the filtered feed as table rows.
+    await expect(accountLedgerRow(page, description)).toBeVisible();
   });
 });

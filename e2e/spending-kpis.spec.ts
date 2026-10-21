@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 import type { Locator } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
+import { expectSpendingPage } from './helpers/ui';
 
 // Coverage for spec-077 (custom financial KPIs): create a KPI with a target,
 // log spend that breaches it, and confirm the breach surfaces on both the
@@ -47,25 +48,31 @@ test.describe('Custom Financial KPIs E2E Flow', () => {
     expect(accountResponse.ok()).toBeTruthy();
 
     await page.getByTestId('nav-spending').click();
-    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
+    await expectSpendingPage(page);
 
     // Log a transaction so the KPI's spend_total metric has a nonzero value.
-    await page.getByTestId('spending-open-new-transaction').click();
-    await page.getByTestId('spending-transaction-amount').fill('150');
+    await page.getByTestId('header-quick-spending').click();
+    await page.getByTestId('transaction-amount-input').fill('150');
     // Select a real seeded category. The first option can be "+ Create new",
     // which opens Manage Categories and leaves a modal intercepting the form.
-    await selectFromCombobox(page.getByTestId('spending-transaction-category'), 'Food & Dining');
-    await selectFromCombobox(page.getByTestId('spending-transaction-account'), `${accountName} (wallet)`);
-    await page.getByTestId('spending-transaction-description').fill('E2E KPI spend');
+    await selectFromCombobox(page.getByTestId('transaction-category-select'), 'Food & Dining');
+    await selectFromCombobox(page.getByTestId('transaction-account-select'), `${accountName} (wallet)`);
+    await page.getByTestId('transaction-description-input').fill('E2E KPI spend');
     const transactionPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/spending/transactions') && res.request().method() === 'POST'
     );
-    await page.getByTestId('spending-transaction-save').click();
+    await page.getByTestId('transaction-submit-btn').click();
     const transactionResponse = await transactionPromise;
     expect(transactionResponse.ok()).toBeTruthy();
 
     // Create a KPI targeting spend_total <= 100 for the current calendar month —
     // the 150 transaction above breaches it immediately.
+    //
+    // The header's quick-add button links to /money?new=1, so the transaction
+    // modal above opened on the Money Flow page. The KPI tab lives on
+    // /spending, so navigate there before using it.
+    await page.getByTestId('nav-spending').click();
+    await expectSpendingPage(page);
     await page.getByTestId('spending-tab-kpis').click();
     // Exact match: the empty-state heading "No custom KPIs yet" also contains
     // the substring "Custom KPIs" and both render together before any KPI exists.

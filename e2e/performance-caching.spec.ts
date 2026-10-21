@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { test, expect, type Locator } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 import { apiV1, csrfHeaders } from './helpers/test-helpers';
+import { activityRow, expectMoneyPage } from './helpers/ui';
 
 test.describe('Performance & API Caching E2E Spec', () => {
   let testEmail = '';
@@ -68,26 +69,38 @@ test.describe('Performance & API Caching E2E Spec', () => {
     await page.getByTestId('master-account-create').click();
 
     await page.getByTestId('nav-spending').click();
-    await page.getByTestId('spending-open-new-transaction').click();
-    await page.getByTestId('spending-transaction-amount').fill('25.00');
-    await selectFromCombobox(page.getByTestId('spending-transaction-category'), 'Other');
-    await selectFromCombobox(page.getByTestId('spending-transaction-account'), `${accountName} (wallet)`);
-    await page.getByTestId('spending-transaction-description').fill('Optimistic Cache Test');
+    // The header's quick-add navigates to /money?new=1, which opens the
+    // transaction modal once the page has navigated. Wait for the modal
+    // before touching its fields.
+    await page.getByTestId('header-quick-spending').click();
+    await expect(page.getByTestId('transaction-amount-input')).toBeVisible({ timeout: 15000 });
+    await page.getByTestId('transaction-amount-input').fill('25.00');
+    await selectFromCombobox(page.getByTestId('transaction-category-select'), 'Other');
+    await selectFromCombobox(page.getByTestId('transaction-account-select'), `${accountName} (wallet)`);
+    await page.getByTestId('transaction-description-input').fill('Optimistic Cache Test');
 
     const transactionPromise = page.waitForResponse(
       (res) => res.url().includes('/v1/spending/transactions') && res.request().method() === 'POST'
     );
-    await page.getByTestId('spending-transaction-save').click();
+    await page.getByTestId('transaction-submit-btn').click();
     await transactionPromise;
 
-    await page.getByTestId('spending-tab-transactions').click();
-    const row = page.locator('tbody tr').filter({ hasText: 'Optimistic Cache Test' });
+    // The transaction list lives on /money (the Unified Activity Stream)
+    // since the four-tab /spending restructure. Rows are divs, and the
+    // delete affordance is the row's "Delete transaction" button rather
+    // than a spending-transaction-delete-* test id.
+    await page.getByTestId('nav-money').click();
+    await expectMoneyPage(page);
+    const row = activityRow(page, 'Optimistic Cache Test');
     await expect(row).toBeVisible();
 
     // Delete transaction and verify immediate optimistic removal from DOM before reload
-    const deleteBtn = row.locator('[data-testid^="spending-transaction-delete-"]');
+    const deleteBtn = row.getByRole('button', { name: /Delete transaction|Delete transfer/ });
     if (await deleteBtn.isVisible()) {
       await deleteBtn.click();
+      // The delete opens a confirmation dialog; the row is only removed
+      // once it is confirmed.
+      await page.getByRole('button', { name: 'Delete', exact: true }).click();
       await expect(row).not.toBeVisible({ timeout: 2000 });
     }
   });

@@ -6,6 +6,8 @@ import {
   csrfHeaders,
   transferCash,
 } from './helpers/test-helpers';
+import { activityRow } from './helpers/ui';
+import { retryUnauthorized } from './helpers/api';
 
 const PASSWORD = 'Password123!';
 
@@ -36,10 +38,15 @@ async function loginViaApi(request: APIRequestContext, credentials: Credentials)
     password: credentials.password,
   });
 
-  const response = await request.post(`${apiV1()}/auth/login`, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    data: params.toString(),
-  });
+  // The registration that precedes this commits at the end of its request,
+  // so an immediate login can still miss the new user. retryUnauthorized
+  // already exists for that pattern.
+  const response = await retryUnauthorized(() =>
+    request.post(`${apiV1()}/auth/login`, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      data: params.toString(),
+    }),
+  );
 
   expect(response.status(), `Login failed for ${credentials.email}: ${await response.text()}`).toBe(200);
 }
@@ -359,13 +366,15 @@ test.describe('Workspace isolation E2E Flow', () => {
     await expect(page.getByText(personalTodoTitle)).toBeVisible();
     await expect(page.getByText(sharedTodoTitle)).toHaveCount(0);
 
-    await page.goto('/spending');
-    await expect(page.getByRole('heading', { name: 'Spending' })).toBeVisible();
+    // The transaction list lives on /money (the Unified Activity Stream)
+    // since the four-tab /spending restructure.
+    await page.goto('/money');
+    await expect(page.getByRole('heading', { name: 'Money Flow & Architecture' })).toBeVisible();
     await expect(page.getByTestId('header-workspace-select')).toHaveValue(
       personalWorkspace!.public_id,
     );
-    await expect(page.getByTestId('transaction-description-table').filter({ hasText: personalTransactionDescription })).toBeVisible();
-    await expect(page.getByTestId('transaction-description-table').filter({ hasText: sharedTransactionDescription })).toHaveCount(0);
+    await expect(activityRow(page, personalTransactionDescription)).toBeVisible();
+    await expect(activityRow(page, sharedTransactionDescription)).toHaveCount(0);
 
     await page.goto('/investing');
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
@@ -387,9 +396,12 @@ test.describe('Workspace isolation E2E Flow', () => {
     await expect(page.getByText(sharedTodoTitle)).toBeVisible();
     await expect(page.getByText(personalTodoTitle)).toHaveCount(0);
 
-    await page.goto('/spending');
-    await expect(page.getByTestId('transaction-description-table').filter({ hasText: sharedTransactionDescription })).toBeVisible();
-    await expect(page.getByTestId('transaction-description-table').filter({ hasText: personalTransactionDescription })).toHaveCount(0);
+    // The transaction list lives on /money (the Unified Activity Stream)
+    // since the four-tab /spending restructure. The rows are divs, so they
+    // are located by their text -- see activityRow() in e2e/helpers/ui.ts.
+    await page.goto('/money');
+    await expect(activityRow(page, sharedTransactionDescription)).toBeVisible();
+    await expect(activityRow(page, personalTransactionDescription)).toHaveCount(0);
 
     await page.goto('/investing');
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();

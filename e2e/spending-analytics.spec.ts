@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
+import { expectSpendingPage } from './helpers/ui';
 
 test.describe('Spending Analytics E2E Spec', () => {
   let testEmail = '';
@@ -21,7 +22,7 @@ test.describe('Spending Analytics E2E Spec', () => {
 
   test('renders spending analytics with distinct category palette and clean savings rate trend', async ({ page }) => {
     await page.getByTestId('nav-spending').click();
-    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
+    await expectSpendingPage(page);
 
     // Navigate to Analytics sub-tab
     await page.getByTestId('spending-tab-analytics').click();

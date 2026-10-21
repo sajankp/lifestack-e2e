@@ -107,7 +107,7 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
   });
 
   test('should create multi-currency accounts and holdings, and verify FX look-through valuation', async ({ page, baseURL }) => {
-    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('nav-portfolio').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
 
     // Verify both holdings were created from the seeded orders
@@ -158,7 +158,7 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     await expect(page.getByTestId('dashboard-portfolio-value')).toHaveText(investingPortfolioValue);
     await expect(page.getByText(/Invested \$2,000\.00 · Gain \$0\.00/)).toBeVisible();
 
-    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('nav-portfolio').click();
 
     // Navigate to the Analytics tab
     await page.getByTestId('investing-tab-analytics').click();
@@ -171,7 +171,7 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
   });
 
   test('should filter holdings by account', async ({ page }) => {
-    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('nav-portfolio').click();
     await expect(page.getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
     await expect(page.getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
 
@@ -184,7 +184,7 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
   });
 
   test('should show unconverted multi-currency state before reporting currency is configured', async ({ page }) => {
-    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('nav-portfolio').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
 
     await expect(page.getByTestId('investing-holding-symbol-VWRD')).toBeVisible();

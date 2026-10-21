@@ -2,6 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { test, expect, type Page } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 import {
+  accountLedgerRow,
+  activityRow,
+  expectMoneyPage,
+  selectActivityAccount,
+} from './helpers/ui';
+import {
   apiV1,
   createAccount,
   csrfHeaders,
@@ -30,6 +36,15 @@ async function submitTransfer(
   // Two "Transfer" triggers can coexist: the page-level hero action (always
   // mounted, first in DOM order) and the Account activity tab's local one
   // (only mounted while that tab is active) — pin to the hero button.
+  // The page offers "Transfer" (the hero action) and, once an account
+  // drill-down is open, "Transfer Money" (the account detail view's own
+  // action, which preselects that account as the source). The hero
+  // button leaves the source unset so the test can choose it, so leave
+  // any open drill-down first.
+  const back = page.getByTestId('account-detail-back');
+  if (await back.count()) {
+    await back.click();
+  }
   await page.getByRole('button', { name: 'Transfer', exact: true }).first().click();
   const modal = page.locator('.fixed').filter({ hasText: 'Transfer Between Wallets/Accounts' });
   await expect(modal.getByText('Transfer Between Wallets/Accounts')).toBeVisible();
@@ -37,25 +52,37 @@ async function submitTransfer(
   await chooseSelectOption(page, 'Select source account', fromLabel);
   await chooseSelectOption(page, 'Select destination account', toLabel);
 
-  const numberInputs = modal.getByRole('spinbutton');
-  await numberInputs.nth(0).fill(amount);
+  // The modal's numeric fields are FormattedNumberInput (type="text"),
+  // not native number inputs, so they are addressed by their test ids
+  // rather than by the spinbutton role.
+  await modal.getByTestId('transfer-amount').fill('');
+  await modal.getByTestId('transfer-amount').fill(amount);
 
-  // FX rate / fees live behind the "Add fees / cross-currency" disclosure —
-  // it must be opened before those inputs are interactable.
+  // The "Add fees / cross-currency" disclosure auto-opens when a
+  // cross-currency pair is selected, so it does not need to be expanded
+  // here. Clicking its summary would actually CLOSE it again.
   if (extras?.fxRate || extras?.fxFee || extras?.platformFee || extras?.tax) {
-    await modal.getByText('Add fees / cross-currency').click();
+    await expect(modal.locator('details')).toHaveAttribute('open', '');
   }
+  // The fee fields are seeded with "0", and a formatted input keeps its
+  // raw value, so fill() appends to it -- "0" + "1.00" is "01.00". Clear
+  // each field before filling it.
+  const fillNumber = async (testId: string, value: string) => {
+    const field = modal.getByTestId(testId);
+    await field.fill('');
+    await field.fill(value);
+  };
   if (extras?.fxRate) {
-    await numberInputs.nth(1).fill(extras.fxRate);
+    await fillNumber('transfer-fx-rate', extras.fxRate);
   }
   if (extras?.fxFee) {
-    await numberInputs.nth(2).fill(extras.fxFee);
+    await fillNumber('transfer-fx-fee', extras.fxFee);
   }
   if (extras?.platformFee) {
-    await numberInputs.nth(3).fill(extras.platformFee);
+    await fillNumber('transfer-platform-fee', extras.platformFee);
   }
   if (extras?.tax) {
-    await numberInputs.nth(4).fill(extras.tax);
+    await fillNumber('transfer-tax', extras.tax);
   }
 
   await modal.getByPlaceholder('e.g. Top-up to wallet').fill(notes);
@@ -79,20 +106,27 @@ async function submitTransfer(
  * was deliberately dropped from the row per UX-REVIEW item 6).
  */
 async function selectLedgerAccount(page: Page, accountLabel: string): Promise<void> {
-  await page.getByTestId('spending-tab-ledger').click();
-  await page.getByTestId('ledger-account-select').click();
-  await page.getByRole('option', { name: accountLabel, exact: true }).click();
+  await selectActivityAccount(page, accountLabel);
 }
 
 async function expectLedgerTransferRow(
   page: Page,
-  notes: string,
+  counterpartName: string,
   direction: 'Out' | 'In',
   amountText: string,
 ): Promise<void> {
-  const row = page.locator('tbody tr').filter({ hasText: notes });
+  // After an account is selected the page shows the "Account Ledger &
+  // History" table, whose rows are <tr> -- not the activity stream's divs.
+  //
+  // The API does not expose a transfer's notes in the activity feed: the
+  // description is always "Transfer to <target>" (or "Transfer from
+  // <source>" on the other side), and the counterpart account name is a
+  // separate field. So the row is matched on that description, not on the
+  // notes the transfer was created with.
+  const description = direction === 'Out' ? `Transfer to ${counterpartName}` : `Transfer from ${counterpartName}`;
+  const row = accountLedgerRow(page, description);
   await expect(row).toBeVisible();
-  await expect(row).toContainText(direction === 'Out' ? `Transfer → ${notes}` : `Transfer ← ${notes}`);
+  await expect(row).toContainText(description);
   await expect(row).toContainText(amountText);
 }
 
@@ -123,14 +157,16 @@ test.describe('Transfer Flow E2E', () => {
     const authedUsdTarget = await createAccount(page, usdTargetName, 'wallet', 'USD');
     const authedGbpTarget = await createAccount(page, gbpTargetName, 'bank', 'GBP');
 
-    await page.getByTestId('nav-spending').click();
-    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
+    // The transfer modal and the Unified Activity Stream both live on
+    // /money since the four-tab /spending restructure.
+    await page.getByTestId('nav-money').click();
+    await expectMoneyPage(page);
 
     await submitTransfer(page, usdSourceLabel, usdTargetLabel, '125.00', sameCurrencyNote);
     await selectLedgerAccount(page, usdSourceLabel);
-    await expectLedgerTransferRow(page, sameCurrencyNote, 'Out', '$125.00');
+    await expectLedgerTransferRow(page, usdTargetName, 'Out', '$125.00');
     await selectLedgerAccount(page, usdTargetLabel);
-    await expectLedgerTransferRow(page, sameCurrencyNote, 'In', '$125.00');
+    await expectLedgerTransferRow(page, usdSourceName, 'In', '$125.00');
 
     await submitTransfer(page, usdSourceLabel, gbpTargetLabel, '100.00', crossCurrencyNote, {
       fxRate: '0.8',
@@ -138,9 +174,14 @@ test.describe('Transfer Flow E2E', () => {
       platformFee: '2.00',
     });
     await selectLedgerAccount(page, usdSourceLabel);
-    await expectLedgerTransferRow(page, crossCurrencyNote, 'Out', '$100.00');
+    await expectLedgerTransferRow(page, gbpTargetName, 'Out', '$100.00');
     await selectLedgerAccount(page, gbpTargetLabel);
-    await expectLedgerTransferRow(page, crossCurrencyNote, 'In', '£77.00');
+    // The modal's rate field is quoted in the "1 GBP = X USD" direction, so
+    // entering 0.8 means 1 USD = 1.25 GBP. The API's contract is
+    // net = gross * fx_rate_used - fees, with fx_rate_used expressed as
+    // to-currency per 1 from-currency, so 100 USD becomes
+    // 100 * 1.25 = 125.00 GBP gross, minus 3.00 GBP of fees = 122.00 GBP.
+    await expectLedgerTransferRow(page, usdSourceName, 'In', '£122.00');
 
     const invalidTransfer = await page.request.post(`${apiV1()}/finance/transfers`, {
       headers: await csrfHeaders(page),
@@ -215,20 +256,28 @@ test.describe('Transfer Flow E2E', () => {
     expect(txRes.status()).toBe(201);
 
     // Create a transfer
-    await page.getByTestId('nav-spending').click();
+    await page.getByTestId('nav-money').click();
+    await expectMoneyPage(page);
     await submitTransfer(page, usdSourceLabel, usdTargetLabel, '50.00', transferNote);
 
-    // Go to Account activity tab
-    await selectLedgerAccount(page, usdSourceLabel);
-
-    // Verify transaction row displays the category
-    const txRow = page.locator('tbody tr').filter({ hasText: txDescription });
-    await expect(txRow).toBeVisible();
-    await expect(txRow).toContainText(`Groceries ${suffix}`);
-
-    // Verify transfer row displays em dash in Category column
-    const transferRow = page.locator('tbody tr').filter({ hasText: transferNote });
+    // The category badge lives in the Unified Activity Stream, and only
+    // there: the "Account Ledger & History" table that replaces the
+    // stream once an account is selected has no Category column at all
+    // (Date / Type / Description / Amount / Running Balance / Actions).
+    // So assert the category first, against the unfiltered stream, and
+    // only then drill into the account.
+    await expect(activityRow(page, txDescription)).toContainText(`Groceries ${suffix}`);
+    // A transfer's description in the feed is "Transfer to <target>" --
+    // the notes it was created with are not exposed by the activity feed.
+    // A transfer row carries no category badge (the old table rendered an
+    // em dash in that column; the stream simply omits it).
+    const transferRow = activityRow(page, `Transfer to ${usdTargetName}`);
     await expect(transferRow).toBeVisible();
-    await expect(transferRow).toContainText('—');
+    await expect(transferRow).not.toContainText('Groceries');
+
+    // Now drill into the account and check the ledger table.
+    await selectLedgerAccount(page, usdSourceLabel);
+    const txRow = accountLedgerRow(page, txDescription);
+    await expect(txRow).toBeVisible();
   });
 });

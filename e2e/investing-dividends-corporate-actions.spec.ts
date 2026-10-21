@@ -54,9 +54,11 @@ test.describe('Investing Dividends & Corporate Actions E2E Flow', () => {
   });
 
   test('records a dividend and deletes it @smoke @critical', async ({ page }) => {
-    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('nav-portfolio').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
-    await page.getByTestId('investing-tab-cash').click();
+    // The cash tab was removed in the Oct restructure; dividends now live
+    // in the Analytics tab, which is where DividendsSection is rendered.
+    await page.getByTestId('investing-tab-analytics').click();
 
     await page.getByTestId('dividend-add-button').click();
     await page.getByTestId('dividend-account').click();
@@ -89,7 +91,7 @@ test.describe('Investing Dividends & Corporate Actions E2E Flow', () => {
   });
 
   test('records a stock split corporate action and deletes it', async ({ page }) => {
-    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('nav-portfolio').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
     await page.getByTestId('investing-tab-orders').click();
 

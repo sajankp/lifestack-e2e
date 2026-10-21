@@ -20,7 +20,7 @@ test.describe('Investing Analytics & Warning Deduplication E2E Spec', () => {
   });
 
   test('renders asset allocation analytics and deduplicates snapshot warnings', async ({ page }) => {
-    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('nav-portfolio').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
 
     // Navigate to Analytics sub-tab

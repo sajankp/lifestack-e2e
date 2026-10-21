@@ -11,6 +11,7 @@ import {
   createBrokerageAccount,
   placeOrderViaApi,
 } from './helpers/test-helpers';
+import { expectMoneyPage } from './helpers/ui';
 
 // Coverage for spec-071 (return metrics UI, Investing > Analytics) and
 // spec-072 (historical data UI, Net Worth > Add historical data).
@@ -67,7 +68,7 @@ test.describe('Investing Return Metrics & Net Worth Historical Data E2E Flow', (
       },
     });
 
-    await page.getByTestId('nav-investing').click();
+    await page.getByTestId('nav-portfolio').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
     await page.getByTestId('investing-tab-analytics').click();
 
@@ -116,8 +117,10 @@ test.describe('Investing Return Metrics & Net Worth Historical Data E2E Flow', (
       await fs.rm(tmpDir, { recursive: true, force: true });
     }
 
-    await page.getByTestId('nav-net-worth').click();
-    await expect(page.getByRole('heading', { name: 'Net Worth' })).toBeVisible();
+    // The "Net Worth" nav item was removed in the Oct restructure; the
+    // net-worth history panel (HistoricalDataPanel) is now on /money.
+    await page.getByTestId('nav-money').click();
+    await expectMoneyPage(page);
     await page.getByTestId('historical-data-open').click();
     await expect(page.getByRole('heading', { name: 'Add historical data' })).toBeVisible();
 

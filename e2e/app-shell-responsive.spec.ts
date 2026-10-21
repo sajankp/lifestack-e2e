@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 
 import { registerAndLogin } from './helpers/auth';
+import { expectSpendingPage } from './helpers/ui';
 
 test.describe('Responsive App Shell E2E Flow', () => {
   const testPassword = 'Password123!';
@@ -41,7 +42,7 @@ test.describe('Responsive App Shell E2E Flow', () => {
     await expect(page.getByLabel('Mobile navigation')).toContainText('Workspace');
     await page.getByTestId('nav-spending-mobile').click();
 
-    await expect(page.getByRole('heading', { name: 'Spending Overview' })).toBeVisible();
+    await expectSpendingPage(page);
     await expect(page.getByLabel('Mobile navigation')).toHaveClass(/-translate-x-full/);
 
     await page.getByTestId('header-profile-menu').click();
