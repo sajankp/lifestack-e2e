@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 import type { Locator } from '@playwright/test';
 import { registerAndLogin } from './helpers/auth';
 import { triggerBudgetGuardrails } from './helpers/e2e-hooks';
-import { activityRow, expectMoneyPage, expectSpendingPage } from './helpers/ui';
+import { accountLedgerRow, activityRow, expectMoneyPage, expectSpendingPage } from './helpers/ui';
 
 test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
   let testEmail = '';
@@ -218,6 +218,10 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     // The transaction list lives on /money (the Unified Activity Stream)
     // since the four-tab /spending restructure; the rows are divs, not
     // <tr>. See activityRow() in e2e/helpers/ui.ts.
+    //
+    // Once an account is selected, /money swaps the stream for the
+    // account drill-down, whose rows are <tr> in a table -- so the row
+    // locator has to change with it (accountLedgerRow, not activityRow).
     await page.getByTestId('nav-money').click();
     await expectMoneyPage(page);
     const row = activityRow(page, description);
@@ -240,6 +244,7 @@ test.describe('Spending Tracker & Budget Guardrails E2E Flow', () => {
     });
     await selectFromCombobox(page.getByTestId('activity-feed-account-filter'), `${accountName} (wallet)`);
     expect((await filteredRequest).ok()).toBeTruthy();
-    await expect(row).toBeVisible();
+    // The drill-down renders the filtered feed as table rows.
+    await expect(accountLedgerRow(page, description)).toBeVisible();
   });
 });
