@@ -63,3 +63,24 @@ export async function triggerMonthlySummary(
   ) as Promise<MonthlySummaryWorkflowRunResponse>;
 }
 
+
+export type PortfolioReportSeed = {
+  as_of: string;
+  run_id?: string;
+  theme_weights?: Record<string, unknown>;
+  harvest_candidates?: unknown[];
+  lrs_headroom_inr?: string | null;
+  tax_buckets?: Record<string, unknown>;
+  foundation_json?: Record<string, unknown> | null;
+};
+
+/** Seed one portfolio report row (normally written by the cron over MCP). */
+export async function seedPortfolioReport(
+  page: Page,
+  report: PortfolioReportSeed,
+): Promise<{ status: 'ok'; public_id: string }> {
+  return postE2EHook(page, 'portfolio-reports', report) as Promise<{
+    status: 'ok';
+    public_id: string;
+  }>;
+}
