@@ -110,16 +110,16 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
     await page.getByTestId('nav-portfolio').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
 
-    // Verify both holdings were created from the seeded orders
-    await expect(page.getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
-    await expect(page.getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
+    // Verify both holdings were created from the seeded orders (table view)
+    await expect(page.locator('[data-testid^="investing-holding-row-"]').getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
+    await expect(page.locator('[data-testid^="investing-holding-row-"]').getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
 
     // Filter holdings by account and verify only the matching account remains.
     await selectOption(page, 'investing-holdings-account-filter', gbpAccount.name);
-    await expect(page.getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
-    await expect(page.getByTestId('investing-holding-symbol-AAPL')).toHaveCount(0);
+    await expect(page.locator('[data-testid^="investing-holding-row-"]').getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
+    await expect(page.locator('[data-testid^="investing-holding-row-"]').getByTestId('investing-holding-symbol-AAPL')).toHaveCount(0);
     await selectOption(page, 'investing-holdings-account-filter', 'All accounts');
-    await expect(page.getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
+    await expect(page.locator('[data-testid^="investing-holding-row-"]').getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
 
     // Submit a current price equal to cost for each holding. Without any HoldingPrice row,
     // valuation falls back to cost basis (valuation_status="cost_basis_fallback"), which the
@@ -172,23 +172,23 @@ test.describe('Investing Portfolio & FX Triangulation E2E Flow', () => {
 
   test('should filter holdings by account', async ({ page }) => {
     await page.getByTestId('nav-portfolio').click();
-    await expect(page.getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
-    await expect(page.getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
+    await expect(page.locator('[data-testid^="investing-holding-row-"]').getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
+    await expect(page.locator('[data-testid^="investing-holding-row-"]').getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
 
     await selectOption(page, 'investing-holdings-account-filter', gbpAccount.name);
-    await expect(page.getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
-    await expect(page.getByTestId('investing-holding-symbol-AAPL')).toHaveCount(0);
+    await expect(page.locator('[data-testid^="investing-holding-row-"]').getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
+    await expect(page.locator('[data-testid^="investing-holding-row-"]').getByTestId('investing-holding-symbol-AAPL')).toHaveCount(0);
 
     await selectOption(page, 'investing-holdings-account-filter', 'All accounts');
-    await expect(page.getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
+    await expect(page.locator('[data-testid^="investing-holding-row-"]').getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
   });
 
   test('should show unconverted multi-currency state before reporting currency is configured', async ({ page }) => {
     await page.getByTestId('nav-portfolio').click();
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
 
-    await expect(page.getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
-    await expect(page.getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
+    await expect(page.locator('[data-testid^="investing-holding-row-"]').getByTestId('investing-holding-symbol-VWRD')).toBeVisible();
+    await expect(page.locator('[data-testid^="investing-holding-row-"]').getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
 
     await expect(page.getByTestId('investing-portfolio-value')).toContainText('N/A');
     await expect(page.getByTestId('investing-reporting-currency')).toContainText('Not configured');

@@ -378,7 +378,7 @@ test.describe('Workspace isolation E2E Flow', () => {
 
     await page.goto('/investing');
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
-    await expect(page.getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
+    await expect(page.locator('[data-testid^="investing-holding-row-"]').getByTestId('investing-holding-symbol-AAPL')).toBeVisible();
     await expect(page.getByTestId('investing-holding-symbol-MSFT')).toHaveCount(0);
 
     const sharedSelectResponsePromise = page.waitForResponse(
@@ -405,8 +405,8 @@ test.describe('Workspace isolation E2E Flow', () => {
 
     await page.goto('/investing');
     await expect(page.getByRole('heading', { name: 'Investing' })).toBeVisible();
-    await expect(page.getByTestId('investing-holding-symbol-MSFT')).toBeVisible();
-    await expect(page.getByTestId('investing-holding-symbol-AAPL')).toHaveCount(0);
+    await expect(page.locator('[data-testid^="investing-holding-row-"]').getByTestId('investing-holding-symbol-MSFT')).toBeVisible();
+    await expect(page.locator('[data-testid^="investing-holding-row-"]').getByTestId('investing-holding-symbol-AAPL')).toHaveCount(0);
 
     const personalTodoFromSharedWorkspace = await page.request.get(
       `${apiV1()}/todo/${personalTodoId}`,
