@@ -84,3 +84,28 @@ export async function seedPortfolioReport(
     public_id: string;
   }>;
 }
+
+export type HealthResultsSeed = {
+  record?: {
+    kind?: string;
+    title: string;
+    recorded_on?: string;
+    provider?: string;
+    note?: string;
+    source_ref?: string;
+  };
+  items: Array<Record<string, unknown>>;
+  create_missing_metrics?: boolean;
+};
+
+/** Seed health results through the real bulk-write path (normally written over MCP). */
+export async function seedHealthResults(
+  page: Page,
+  seed: HealthResultsSeed,
+): Promise<{ status: 'ok'; record_public_id: string | null; created: number }> {
+  return postE2EHook(page, 'health-results', seed) as Promise<{
+    status: 'ok';
+    record_public_id: string | null;
+    created: number;
+  }>;
+}
