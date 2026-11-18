@@ -3,7 +3,7 @@
 This repository contains the standalone Playwright-based end-to-end integration test suite for the Lifestack platform. It runs automated user flows against an isolated multi-container staging environment.
 
 Current verified inventory: `npx playwright test --list` discovers
-**64 tests across 29 spec files**.
+**80 tests across 33 spec files**.
 
 
 ## Architecture
